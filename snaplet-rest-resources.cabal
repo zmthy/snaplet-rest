@@ -1,0 +1,30 @@
+name:          snaplet-rest-resources
+version:       0.1.0.0
+homepage:      http://github.com/zimothy/snaplet-rest-resources
+license:       MIT
+license-file:  LICENSE
+author:        Timothy Jones
+maintainer:    Timothy Jones <git@zimothy.com>
+copyright:     (c) 2013 Timothy Jones
+category:      Web
+build-type:    Simple
+cabal-version: >=1.10
+synopsis:      Provides explicit REST resources for the Snap web framework
+description:
+
+flag development
+  description: Warnings are not considered errors
+  default:     False
+
+library
+  hs-source-dirs: src
+
+  default-language: Haskell2010
+
+  build-depends:
+    base >= 4.6 && < 4.7
+
+source-repository head
+  type:     git
+  location: git://github.com/zimothy/snaplet-rest-resources.git
+
