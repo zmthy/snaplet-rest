@@ -26,6 +26,7 @@ import Snap.Core
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Resource.Config
+import Snap.Snaplet.Resource.Failure
 
 
 ------------------------------------------------------------------------------
@@ -78,25 +79,4 @@ receiveMediaWith cfg = (<|> receiveFailure cfg) $ do
         Just ctype -> do
             body <- toStrict <$> readRequestBody (maxRequestBodySize cfg)
             maybe pass return $ lookup ctype parsers >>= ($ body)
-
-
-------------------------------------------------------------------------------
--- | Serve the given error code, running the given handler.
-failure :: MonadSnap m => Int -> m () -> m a
-failure code handler = do
-    modifyResponse (setResponseCode code)
-    handler
-    withResponse finishWith
-
-
-------------------------------------------------------------------------------
--- | Serves a 406 error and runs the handler specified in the configuration.
-serveFailure :: MonadSnap m => ResourceConfig m -> m ()
-serveFailure cfg = failure 406 $ onServeFailure cfg
-
-
-------------------------------------------------------------------------------
--- | Serves a 415 error and runs the handler specified in the configuration.
-receiveFailure :: MonadSnap m => ResourceConfig m -> m a
-receiveFailure cfg = failure 415 $ onReceiveFailure cfg
 

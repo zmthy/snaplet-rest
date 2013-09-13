@@ -23,6 +23,9 @@ data ResourceConfig m = ResourceConfig
     -- | Action to run if the resource receiving fails.
     , onReceiveFailure :: m ()
 
+    -- | Action to run if the requested resource cannot be found.
+    , onLookupFailure :: m ()
+
     -- | Maximum size of request bodies allowed when receiving resources.
     , maxRequestBodySize :: Int64
     }
@@ -40,6 +43,7 @@ defaultConfig :: Monad m => ResourceConfig m
 defaultConfig = ResourceConfig
     { onServeFailure = return ()
     , onReceiveFailure = return ()
+    , onLookupFailure = return ()
     , maxRequestBodySize = 8192
     }
 

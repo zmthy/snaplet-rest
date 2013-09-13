@@ -27,21 +27,32 @@ library
   default-language: Haskell2010
   default-extensions:
     OverloadedStrings
+    TypeSynonymInstances
+  other-extensions:
+    FlexibleInstances
+    FunctionalDependencies
+    ScopedTypeVariables
 
   exposed-modules:
-    Snap.Snaplet.Example
     Snap.Snaplet.Resource
     Snap.Snaplet.Resource.Config
     Snap.Snaplet.Resource.Media
+    Snap.Snaplet.Resource.Stored
+  other-modules:
+    Snap.Snaplet.Resource.Failure
 
   build-depends:
     aeson            >= 0.6.2  && < 0.7,
     base             >= 4.6.0  && < 4.7,
     bytestring       >= 0.10.0 && < 0.11,
+    case-insensitive >= 1.0.0  && < 1.1,
     http-quality     >= 0.2.0  && < 0.3,
     snap-accept      >= 0.1.0  && < 0.2,
     snap-core        >= 0.9.4  && < 0.10,
-    template-haskell >= 2.8.0  && < 2.9
+    template-haskell >= 2.8.0  && < 2.9,
+    text             >= 0.11.3 && < 0.12,
+    transformers     >= 0.3.0  && < 0.4,
+    utf8-string      >= 0.3.7  && < 0.4
 
 source-repository head
   type:     git
