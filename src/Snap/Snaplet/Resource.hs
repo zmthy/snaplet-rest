@@ -69,10 +69,6 @@ serveWith _ cfg =
 -- function.
 getResource :: (MonadSnap m, FromPath i, Stored m r i)
     => ResourceConfig m -> (r -> m ()) -> m ()
-getResource cfg provide = do
-    req <- getRequest
-    maybe pathParseError (retrieve >=> maybe (lookupFailure cfg) provide)
-        (fromPath $ rqPathInfo req)
-  where
-    pathParseError = error "Path parse error"
+getResource cfg provide = getRequest >>= maybe (pathFailure cfg)
+    (retrieve >=> maybe (lookupFailure cfg) provide) . fromPath . rqPathInfo
 

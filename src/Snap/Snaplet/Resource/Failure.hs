@@ -1,8 +1,11 @@
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Resource.Failure
-    ( serveFailure
-    , receiveFailure
+    ( headerFailure
+    , pathFailure
     , lookupFailure
+    , acceptFailure
+    , contentTypeFailure
+    , requestFailure
     ) where
 
 ------------------------------------------------------------------------------
@@ -13,21 +16,39 @@ import Snap.Snaplet.Resource.Config
 
 
 ------------------------------------------------------------------------------
+-- | Serves a 400 error and runs the handler specified in the configuration.
+headerFailure :: MonadSnap m => ResourceConfig m -> m a
+headerFailure = failure 400 . onHeaderFailure
+
+
+------------------------------------------------------------------------------
+-- | Serves a 400 error and runs the handler specified in the configuration.
+pathFailure :: MonadSnap m => ResourceConfig m -> m a
+pathFailure = failure 400 . onPathFailure
+
+
+------------------------------------------------------------------------------
+-- | Serves a 404 error and runs the handler specified in the configuration.
+lookupFailure :: MonadSnap m => ResourceConfig m -> m a
+lookupFailure = failure 404 . onLookupFailure
+
+
+------------------------------------------------------------------------------
 -- | Serves a 406 error and runs the handler specified in the configuration.
-serveFailure :: MonadSnap m => ResourceConfig m -> m a
-serveFailure cfg = failure 406 $ onServeFailure cfg
+acceptFailure :: MonadSnap m => ResourceConfig m -> m a
+acceptFailure = failure 406 . onAcceptFailure
 
 
 ------------------------------------------------------------------------------
 -- | Serves a 415 error and runs the handler specified in the configuration.
-receiveFailure :: MonadSnap m => ResourceConfig m -> m a
-receiveFailure cfg = failure 415 $ onReceiveFailure cfg
+contentTypeFailure :: MonadSnap m => ResourceConfig m -> m a
+contentTypeFailure = failure 415 . onContentTypeFailure
 
 
 ------------------------------------------------------------------------------
--- | Serves a 404 error and runs the handler specified in the configureation.
-lookupFailure :: MonadSnap m => ResourceConfig m -> m a
-lookupFailure cfg = failure 404 $ onLookupFailure cfg
+-- | Serves a 400 error and runs the handler specified in the configuration.
+requestFailure :: MonadSnap m => ResourceConfig m -> m a
+requestFailure = failure 400 . onRequestFailure
 
 
 ------------------------------------------------------------------------------

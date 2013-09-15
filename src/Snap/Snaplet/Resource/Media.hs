@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 ------------------------------------------------------------------------------
 -- | Defines the 'Media' type class, which is used for converting back and
 -- forth from media representations in HTTP.
@@ -18,6 +20,8 @@ import qualified Network.HTTP.Accept.MediaType as MT
 
 ------------------------------------------------------------------------------
 import Control.Applicative
+import Control.Monad.Trans.Class     (lift)
+import Control.Monad.Trans.Cont      (ContT (..))
 import Data.ByteString               (ByteString)
 import Data.ByteString.Lazy          (toStrict)
 import Network.HTTP.Accept.MediaType (MediaType)
@@ -59,7 +63,7 @@ serveMedia r = resourceConfig >>= flip serveMediaWith r
 -- | Serve the given media using the given configuration.
 serveMediaWith :: (MonadSnap m, Media r) => ResourceConfig m -> r -> m ()
 serveMediaWith cfg r =
-    accepts (map (fmap provideWith) representations) <|> serveFailure cfg
+    accepts (map (fmap provideWith) representations) <|> acceptFailure cfg
   where provideWith f = writeBS $ f r
 
 
@@ -72,11 +76,19 @@ receiveMedia = resourceConfig >>= receiveMediaWith
 ------------------------------------------------------------------------------
 -- | Receive media using the given configuration.
 receiveMediaWith :: (MonadSnap m, Media r) => ResourceConfig m -> m r
-receiveMediaWith cfg = (<|> receiveFailure cfg) $ do
-    req <- getRequest
-    case getHeader "Content-Type" req >>= MT.parse of
-        Nothing    -> pass
-        Just ctype -> do
-            body <- toStrict <$> readRequestBody (maxRequestBodySize cfg)
-            maybe pass return $ lookup ctype parsers >>= ($ body)
+receiveMediaWith cfg = flip runContT return $ callCC $ \quit -> do
+    let mayf f = maybe (lift (f cfg) >>= quit) return
+    header <- lift $ getHeader "Content-Type" <$> getRequest
+    ctype  <- mayf headerFailure $ header >>= MT.parse
+    parser <- mayf contentTypeFailure $ lookup ctype parsers
+    body   <- lift $ toStrict <$> readRequestBody (maxRequestBodySize cfg)
+    mayf requestFailure $ parser body
+
+
+------------------------------------------------------------------------------
+-- | The same as the standard callCC from the transformers library, but with
+-- an explicit for-all in the continuation function.  This allows it to be
+-- used in differently typed outcomes.
+callCC :: ((forall b. a -> ContT r m b) -> ContT r m a) -> ContT r m a
+callCC f = ContT $ \c -> runContT (f (\a -> ContT $ \_ -> c a)) c
 
