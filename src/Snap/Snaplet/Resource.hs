@@ -48,11 +48,10 @@ serveWith
         Media r, FromPath i, ParseMedia d, Diff r d, Stored m r i d)
     => Resource r -> ResourceConfig m -> m ()
 serveWith r cfg =
-    method GET (getResource cfg (serveMediaWith cfg :: r -> m ()))
+    methods [GET, HEAD] (getResource cfg (serveMediaWith cfg :: r -> m ()))
     <|> method POST ((receiveMediaWith cfg :: m r) >>= store)
     <|> method PUT ((receiveMediaWith cfg :: m r) >>= updateR . toDiff)
     <|> method DELETE (deleteResource r cfg)
-    {-<|> method HEAD undefined-}
     <|> method PATCH ((receiveMediaWith cfg :: m d) >>= updateR)
     {-<|> method OPTIONS undefined-}
   where updateR = updateResource r cfg :: d -> m ()
