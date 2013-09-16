@@ -3,8 +3,8 @@
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Resource
     (
-      ParseMedia (..)
-    , Media (..)
+      FromMedia (..)
+    , ToMedia (..)
     , Stored (..)
     , Diff (..)
     , HasResourceConfig (..)
@@ -35,8 +35,8 @@ import Snap.Snaplet.Resource.Stored
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the configuration in the monad.
 serve
-    :: (HasResourceConfig m, MonadSnap m,
-        Media r, FromPath i, ParseMedia d, Diff r d, Stored m r i d)
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r, ToMedia r,
+        FromPath i, FromMedia d, Diff r d, Stored m r i d)
     => Resource r -> m ()
 serve r = resourceConfig >>= serveWith r
 
@@ -44,8 +44,8 @@ serve r = resourceConfig >>= serveWith r
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the given configuration.
 serveWith
-    :: forall m r i d.  (MonadSnap m,
-        Media r, FromPath i, ParseMedia d, Diff r d, Stored m r i d)
+    :: forall m r i d.  (MonadSnap m, FromMedia r, ToMedia r,
+        FromPath i, FromMedia d, Diff r d, Stored m r i d)
     => Resource r -> ResourceConfig m -> m ()
 serveWith r cfg =
     methods [GET, HEAD] (getResource cfg (serveMediaWith cfg :: r -> m ()))
