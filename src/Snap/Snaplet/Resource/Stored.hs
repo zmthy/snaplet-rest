@@ -19,13 +19,19 @@ import Control.Monad
 import Data.ByteString      (ByteString)
 import Data.CaseInsensitive (CI, mk)
 
+------------------------------------------------------------------------------
+import Snap.Snaplet.Resource.Proxy
+
 
 ------------------------------------------------------------------------------
 class FromPath i where
     fromPath :: ByteString -> Maybe i
 
-{-instance FromPath Int where-}
-    {-fromPath p = reads $ BS.toString p-}
+instance FromPath Int where
+    fromPath p = safeRead . reads $ BS.toString p
+      where
+        safeRead [(i, "")] = Just i
+        safeRead _         = Nothing
 
 instance FromPath (CI String) where
     fromPath p = mk . BS.toString <$> notEmpty p
@@ -64,12 +70,11 @@ notEmpty :: ByteString -> Maybe ByteString
 notEmpty bs = if BS.null bs then Nothing else Just bs
 
 
-
 ------------------------------------------------------------------------------
 class FromPath i => Stored m r i | m r -> i where
     retrieve :: i -> m (Maybe r)
     store    :: r -> m ()
-    delete   :: r -> m ()
+    delete   :: Resource r -> i -> m ()
     update   :: Diff r -> m ()
 
 

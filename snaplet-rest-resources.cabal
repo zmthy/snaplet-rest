@@ -38,6 +38,7 @@ library
     Snap.Snaplet.Resource
     Snap.Snaplet.Resource.Config
     Snap.Snaplet.Resource.Media
+    Snap.Snaplet.Resource.Proxy
     Snap.Snaplet.Resource.Stored
   other-modules:
     Snap.Snaplet.Resource.Failure
