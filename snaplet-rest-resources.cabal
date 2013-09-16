@@ -37,7 +37,9 @@ library
   exposed-modules:
     Snap.Snaplet.Resource
     Snap.Snaplet.Resource.Config
+    Snap.Snaplet.Resource.Diff
     Snap.Snaplet.Resource.Media
+    Snap.Snaplet.Resource.Path
     Snap.Snaplet.Resource.Proxy
     Snap.Snaplet.Resource.Stored
   other-modules:
