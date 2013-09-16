@@ -49,11 +49,12 @@ serveWith
         FromPath i, FromMedia d, Diff r d, Stored m r i d)
     => Resource r -> ResourceConfig m -> m ()
 serveWith r cfg =
-    methods [GET, HEAD] (getResource cfg (serveMediaWith cfg :: r -> m ()))
+    method GET (getResource cfg (serveMediaWith cfg :: r -> m ()))
     <|> method POST (ifTop $ (receiveMediaWith cfg :: m r) >>= store)
     <|> method PUT ((receiveMediaWith cfg :: m r) >>= updateR . toDiff)
     <|> method DELETE (deleteResource r cfg)
     <|> method PATCH ((receiveMediaWith cfg :: m d) >>= updateR)
+    <|> method HEAD (checkResource r cfg)
     <|> method OPTIONS (getOptions r cfg)
   where updateR = updateResource r cfg :: d -> m ()
 
@@ -90,13 +91,22 @@ updateResource r cfg diff = getRequest >>=
 
 
 ------------------------------------------------------------------------------
+-- | Similar to 'getResource', but only checks if the resource exists, serving
+-- an empty body.
+checkResource
+    :: (MonadSnap m, FromPath i, Stored m r i d)
+    => Resource r -> ResourceConfig m -> m ()
+checkResource r cfg = getRequest >>= maybe (pathFailure cfg)
+    (exists r >=> flip when (lookupFailure cfg) . not) . fromPath . rqPathInfo
+
+
+------------------------------------------------------------------------------
 -- | Serves either collection or resource options, depending on the path.
 getOptions
-    :: forall m r i d. (MonadSnap m, FromPath i, Stored m r i d)
+    :: (MonadSnap m, FromPath i, Stored m r i d)
     => Resource r -> ResourceConfig m -> m ()
 getOptions r cfg = (ifTop (serveMediaWith cfg CollectionOptions) <|>) $ do
-    fromPath . rqPathInfo <$> getRequest >>=
-        maybe (pathFailure cfg) return >>= exists r >>=
-        flip when (lookupFailure cfg) . not
+    getRequest >>= maybe (pathFailure cfg) return . fromPath . rqPathInfo >>=
+        exists r >>= flip when (lookupFailure cfg) . not
     serveMediaWith cfg ResourceOptions
 
