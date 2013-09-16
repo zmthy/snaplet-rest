@@ -27,6 +27,7 @@ import Snap.Snaplet.Resource.Config
 import Snap.Snaplet.Resource.Diff
 import Snap.Snaplet.Resource.Failure
 import Snap.Snaplet.Resource.Media
+import Snap.Snaplet.Resource.Options
 import Snap.Snaplet.Resource.Path
 import Snap.Snaplet.Resource.Proxy
 import Snap.Snaplet.Resource.Stored
@@ -49,11 +50,11 @@ serveWith
     => Resource r -> ResourceConfig m -> m ()
 serveWith r cfg =
     methods [GET, HEAD] (getResource cfg (serveMediaWith cfg :: r -> m ()))
-    <|> method POST ((receiveMediaWith cfg :: m r) >>= store)
+    <|> method POST (ifTop $ (receiveMediaWith cfg :: m r) >>= store)
     <|> method PUT ((receiveMediaWith cfg :: m r) >>= updateR . toDiff)
     <|> method DELETE (deleteResource r cfg)
     <|> method PATCH ((receiveMediaWith cfg :: m d) >>= updateR)
-    {-<|> method OPTIONS undefined-}
+    <|> method OPTIONS (getOptions r cfg)
   where updateR = updateResource r cfg :: d -> m ()
 
 
@@ -86,4 +87,16 @@ updateResource
     => Resource r -> ResourceConfig m -> d -> m ()
 updateResource r cfg diff = getRequest >>=
     maybe (pathFailure cfg) (flip (update r) diff) . fromPath . rqPathInfo
+
+
+------------------------------------------------------------------------------
+-- | Serves either collection or resource options, depending on the path.
+getOptions
+    :: forall m r i d. (MonadSnap m, FromPath i, Stored m r i d)
+    => Resource r -> ResourceConfig m -> m ()
+getOptions r cfg = (ifTop (serveMediaWith cfg CollectionOptions) <|>) $ do
+    fromPath . rqPathInfo <$> getRequest >>=
+        maybe (pathFailure cfg) return >>= exists r >>=
+        flip when (lookupFailure cfg) . not
+    serveMediaWith cfg ResourceOptions
 

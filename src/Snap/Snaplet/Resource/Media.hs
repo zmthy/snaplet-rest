@@ -25,8 +25,6 @@ import qualified Network.HTTP.Accept.MediaType as MT
 
 ------------------------------------------------------------------------------
 import Control.Applicative
-import Control.Monad.Trans.Class     (lift)
-import Control.Monad.Trans.Cont      (ContT (..))
 import Data.ByteString               (ByteString)
 import Data.ByteString.Lazy          (toStrict)
 import Network.HTTP.Accept.MediaType (MediaType)
@@ -82,19 +80,11 @@ receiveMedia = resourceConfig >>= receiveMediaWith
 ------------------------------------------------------------------------------
 -- | Receive media using the given configuration.
 receiveMediaWith :: (MonadSnap m, FromMedia r) => ResourceConfig m -> m r
-receiveMediaWith cfg = flip runContT return $ callCC $ \quit -> do
-    let mayf f = maybe (lift (f cfg) >>= quit) return
-    header <- lift $ getHeader "Content-Type" <$> getRequest
-    ctype  <- mayf headerFailure $ header >>= MT.parse
-    parser <- mayf contentTypeFailure $ lookup ctype parsers
-    body   <- lift $ toStrict <$> readRequestBody (maxRequestBodySize cfg)
-    mayf requestFailure $ parser body
-
-
-------------------------------------------------------------------------------
--- | The same as the standard callCC from the transformers library, but with
--- an explicit for-all in the continuation function.  This allows it to be
--- used in differently typed outcomes.
-callCC :: ((forall b. a -> ContT r m b) -> ContT r m a) -> ContT r m a
-callCC f = ContT $ \c -> runContT (f (\a -> ContT $ \_ -> c a)) c
+receiveMediaWith cfg = do
+    header <- getHeader "Content-Type" <$> getRequest
+    ctype  <- mayFail headerFailure $ header >>= MT.parse
+    parser <- mayFail contentTypeFailure $ lookup ctype parsers
+    body   <- toStrict <$> readRequestBody (maxRequestBodySize cfg)
+    mayFail requestFailure $ parser body
+  where mayFail handler = maybe (handler cfg) return
 

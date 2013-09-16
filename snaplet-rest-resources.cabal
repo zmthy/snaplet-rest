@@ -44,6 +44,7 @@ library
     Snap.Snaplet.Resource.Stored
   other-modules:
     Snap.Snaplet.Resource.Failure
+    Snap.Snaplet.Resource.Options
 
   build-depends:
     aeson            >= 0.6.2  && < 0.7,
@@ -55,7 +56,6 @@ library
     snap-core        >= 0.9.4  && < 0.10,
     template-haskell >= 2.8.0  && < 2.9,
     text             >= 0.11.3 && < 0.12,
-    transformers     >= 0.3.0  && < 0.4,
     utf8-string      >= 0.3.7  && < 0.4
 
 source-repository head
