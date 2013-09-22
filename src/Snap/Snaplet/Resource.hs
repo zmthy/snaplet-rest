@@ -3,17 +3,24 @@
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Resource
     (
-      FromMedia (..)
+    -- * Serving resources
+      serve
+    , serveWith
+
+    -- * Media
+    , FromMedia (..)
     , ToMedia (..)
+
+    -- * Stored
     , Stored (..)
     , Diff (..)
+
+    -- * Config
     , HasResourceConfig (..)
     , ResourceConfig (..)
     , defaultConfig
 
-    -- * Serving resources
-    , serve
-    , serveWith
+    -- * Proxy
     , Resource (..)
     ) where
 
