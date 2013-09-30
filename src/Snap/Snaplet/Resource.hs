@@ -23,6 +23,8 @@ module Snap.Snaplet.Resource
     , Exists (..)
     , Fetch (..)
     , Store (..)
+    , Update (..)
+    , Delete (..)
     , Diff (..)
 
     -- * Config
@@ -53,9 +55,9 @@ import Snap.Snaplet.Resource.Stored
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the configuration in the monad.
 serveResource
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r, ToMedia r, FromPath i
-    , FromMedia d, Diff r d, Fetch r m i, Store r m , Update r m i d
-    , Delete r m i)
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r m, ToMedia r m
+    , FromPath i, FromMedia d m, Diff r d, Fetch r m i, Store r m
+    , Update r m i d, Delete r m i)
     => Resource r -> m ()
 serveResource r = fetchResource r
     <|> storeResource r
@@ -68,7 +70,7 @@ serveResource r = fetchResource r
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the given configuration.
 serveResourceWith
-    :: (MonadSnap m, FromMedia r, ToMedia r, FromPath i, FromMedia d
+    :: (MonadSnap m, FromMedia r m, ToMedia r m, FromPath i, FromMedia d m
     , Diff r d, Fetch r m i, Store r m, Update r m i d, Delete r m i)
     => Resource r -> ResourceConfig m -> m ()
 serveResourceWith r cfg = fetchResourceWith r cfg
@@ -83,7 +85,8 @@ serveResourceWith r cfg = fetchResourceWith r cfg
 -- | Fetch and serve a resource using the remaining path information, using
 -- the configuration in the monad.
 fetchResource
-    :: (HasResourceConfig m, MonadSnap m, ToMedia r, FromPath i, Fetch r m i)
+    :: (HasResourceConfig m, MonadSnap m, ToMedia r m, FromPath i
+    , Fetch r m i)
     => Resource r -> m ()
 fetchResource r = method GET (resourceConfig >>= fetchResourceWith r)
     <|> checkResource r <|> fetchOptions r
@@ -93,7 +96,7 @@ fetchResource r = method GET (resourceConfig >>= fetchResourceWith r)
 -- | Fetch and serve a resource using the remaining path information, using
 -- the given configuration.
 fetchResourceWith
-    :: (MonadSnap m, ToMedia r, FromPath i, Fetch r m i)
+    :: (MonadSnap m, ToMedia r m, FromPath i, Fetch r m i)
     => Resource r -> ResourceConfig m -> m ()
 fetchResourceWith r cfg = method GET $ fetchResourceWith' r cfg
     <|> checkResourceWith r cfg <|> fetchOptionsWith r cfg
@@ -102,7 +105,7 @@ fetchResourceWith r cfg = method GET $ fetchResourceWith' r cfg
 ------------------------------------------------------------------------------
 -- | Unrouted form of 'fetchResourceWith'.
 fetchResourceWith'
-    :: forall m r i. (MonadSnap m, ToMedia r, FromPath i, Fetch r m i)
+    :: forall m r i. (MonadSnap m, ToMedia r m, FromPath i, Fetch r m i)
     => Resource r -> ResourceConfig m -> m ()
 fetchResourceWith' _ cfg = getRequest >>= maybe (pathFailure cfg)
     (fetch >=> maybe (lookupFailure cfg) serve) . fromPath . rqPathInfo
@@ -113,7 +116,7 @@ fetchResourceWith' _ cfg = getRequest >>= maybe (pathFailure cfg)
 -- | Store a new resource from the request body, using the configuration in
 -- the monad.
 storeResource
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r, Store r m)
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r m, Store r m)
     => Resource r -> m ()
 storeResource r = method POST $ resourceConfig >>= storeResourceWith' r
 
@@ -122,7 +125,7 @@ storeResource r = method POST $ resourceConfig >>= storeResourceWith' r
 -- | Store a new resource from the request body, using the given
 -- configuration.
 storeResourceWith
-    :: (MonadSnap m, FromMedia r, Store r m)
+    :: (MonadSnap m, FromMedia r m, Store r m)
     => Resource r -> ResourceConfig m -> m ()
 storeResourceWith r cfg = method POST $ storeResourceWith' r cfg
 
@@ -130,7 +133,7 @@ storeResourceWith r cfg = method POST $ storeResourceWith' r cfg
 ------------------------------------------------------------------------------
 -- | Unrouted form of 'storeResourceWith'.
 storeResourceWith'
-    :: forall m r. (MonadSnap m, FromMedia r, Store r m)
+    :: forall m r. (MonadSnap m, FromMedia r m, Store r m)
     => Resource r -> ResourceConfig m -> m ()
 storeResourceWith' _ cfg = ifTop (receive >>= store) <|> methodFailure cfg
   where receive = receiveMediaWith cfg :: m r
@@ -141,8 +144,8 @@ storeResourceWith' _ cfg = ifTop (receive >>= store) <|> methodFailure cfg
 -- | Update a resource from the request body, using the configuration in the
 -- monad.
 updateResource
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r, FromPath i, FromMedia d
-    , Diff r d, Update r m i d)
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r m, FromPath i
+    , FromMedia d m, Diff r d, Update r m i d)
     => Resource r -> m ()
 updateResource r = methods [PUT, PATCH]
     (resourceConfig >>= updateResourceWith r)
@@ -152,8 +155,8 @@ updateResource r = methods [PUT, PATCH]
 ------------------------------------------------------------------------------
 -- | Update a resource from the request body, using the given configuration.
 updateResourceWith
-    :: forall m r i d. (MonadSnap m, FromMedia r, FromPath i, Diff r d
-    , FromMedia d, Update r m i d)
+    :: forall m r i d. (MonadSnap m, FromMedia r m, FromPath i, Diff r d
+    , FromMedia d m, Update r m i d)
     => Resource r -> ResourceConfig m -> m ()
 updateResourceWith r cfg =
     (method PUT (toDiff <$> (receiveMediaWith cfg :: m r))

@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 ------------------------------------------------------------------------------
 -- | Specifies client options for given path point on the server.
 module Snap.Snaplet.Resource.Options
@@ -13,10 +15,10 @@ import Snap.Snaplet.Resource.Media
 -- | Options on a collection of resources.
 data CollectionOptions = CollectionOptions
 
-instance ToMedia CollectionOptions where
+instance Monad m => ToMedia CollectionOptions m where
     representations =
-        [ ("application/json", const "[]")
-        , ("application/xml",  const "<options></options>")
+        [ ("application/json", const $ return "[]")
+        , ("application/xml",  const $ return "<options></options>")
         ]
 
 
@@ -24,9 +26,9 @@ instance ToMedia CollectionOptions where
 -- | Options on a single resource.
 data ResourceOptions = ResourceOptions
 
-instance ToMedia ResourceOptions where
+instance Monad m => ToMedia ResourceOptions m where
     representations =
-        [ ("application/json", const "[]")
-        , ("application/xml",  const "<options></options>")
+        [ ("application/json", const $ return "[]")
+        , ("application/xml",  const $ return "<options></options>")
         ]
 

@@ -39,52 +39,52 @@ import Snap.Snaplet.Resource.Failure
 ------------------------------------------------------------------------------
 -- | Instances of this type class can be parsed from various media types.
 -- Implementations specify the supported media types and associated parsers.
-class FromMedia r where
+class FromMedia r m where
 
     -- | The media types that this type can be parsed rfrom, and the functions
     -- to parse each representation.
-    parsers :: [(MediaType, ByteString -> Maybe r)]
+    parsers :: [(MediaType, ByteString -> m (Maybe r))]
 
 
 ------------------------------------------------------------------------------
 -- | Instances of this type class can be represented as various media types.
 -- Implementations specify the supported media types and associated conversion
 -- functions.
-class ToMedia r where
+class ToMedia r m where
 
     -- | The media types that this type can be represented as, and the
     -- functions to perform create each representation.
-    representations :: [(MediaType, r -> ByteString)]
+    representations :: [(MediaType, r -> m ByteString)]
 
 
 ------------------------------------------------------------------------------
 -- | Serve the given media using the configuration in the monad.
-serveMedia :: (HasResourceConfig m, MonadSnap m, ToMedia r) => r -> m ()
+serveMedia :: (HasResourceConfig m, MonadSnap m, ToMedia r m) => r -> m ()
 serveMedia r = resourceConfig >>= flip serveMediaWith r
 
 
 ------------------------------------------------------------------------------
 -- | Serve the given media using the given configuration.
-serveMediaWith :: (MonadSnap m, ToMedia r) => ResourceConfig m -> r -> m ()
+serveMediaWith :: (MonadSnap m, ToMedia r m) => ResourceConfig m -> r -> m ()
 serveMediaWith cfg r =
     accepts (map (fmap provideWith) representations) <|> acceptFailure cfg
-  where provideWith f = writeBS $ f r
+  where provideWith f = f r >>= writeBS
 
 
 ------------------------------------------------------------------------------
 -- | Receive media using the configureation in the monad.
-receiveMedia :: (HasResourceConfig m, MonadSnap m, FromMedia r) => m r
+receiveMedia :: (HasResourceConfig m, MonadSnap m, FromMedia r m) => m r
 receiveMedia = resourceConfig >>= receiveMediaWith
 
 
 ------------------------------------------------------------------------------
 -- | Receive media using the given configuration.
-receiveMediaWith :: (MonadSnap m, FromMedia r) => ResourceConfig m -> m r
+receiveMediaWith :: (MonadSnap m, FromMedia r m) => ResourceConfig m -> m r
 receiveMediaWith cfg = do
     header <- getHeader "Content-Type" <$> getRequest
     ctype  <- mayFail headerFailure $ header >>= MT.parse
     parser <- mayFail contentTypeFailure $ mapContent ctype parsers
     body   <- toStrict <$> readRequestBody (maxRequestBodySize cfg)
-    mayFail requestFailure $ parser body
+    parser body >>= mayFail requestFailure
   where mayFail handler = maybe (handler cfg) return
 

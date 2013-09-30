@@ -26,8 +26,9 @@ library
 
   default-language: Haskell2010
   default-extensions:
-    OverloadedStrings
+    MultiParamTypeClasses
     TypeSynonymInstances
+    OverloadedStrings
   other-extensions:
     FlexibleInstances
     FunctionalDependencies
