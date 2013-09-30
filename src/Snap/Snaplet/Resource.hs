@@ -4,15 +4,25 @@
 module Snap.Snaplet.Resource
     (
     -- * Serving resources
-      serve
-    , serveWith
+      serveResource
+    , serveResourceWith
+    , fetchResource
+    , fetchResourceWith
+    , storeResource
+    , storeResourceWith
+    , updateResource
+    , updateResourceWith
+    , deleteResource
+    , deleteResourceWith
 
     -- * Media
     , FromMedia (..)
     , ToMedia (..)
 
     -- * Stored
-    , Stored (..)
+    , Exists (..)
+    , Fetch (..)
+    , Store (..)
     , Diff (..)
 
     -- * Config
@@ -42,77 +52,201 @@ import Snap.Snaplet.Resource.Stored
 
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the configuration in the monad.
-serve
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r, ToMedia r,
-        FromPath i, FromMedia d, Diff r d, Stored m r i d)
+serveResource
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r, ToMedia r, FromPath i
+    , FromMedia d, Diff r d, Fetch r m i, Store r m , Update r m i d
+    , Delete r m i)
     => Resource r -> m ()
-serve r = resourceConfig >>= serveWith r
+serveResource r = fetchResource r
+    <|> storeResource r
+    <|> updateResource r
+    <|> deleteResource r
+    <|> checkResource r
+    <|> fetchOptions r
 
 
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the given configuration.
-serveWith
-    :: forall m r i d.  (MonadSnap m, FromMedia r, ToMedia r,
-        FromPath i, FromMedia d, Diff r d, Stored m r i d)
+serveResourceWith
+    :: (MonadSnap m, FromMedia r, ToMedia r, FromPath i, FromMedia d
+    , Diff r d, Fetch r m i, Store r m, Update r m i d, Delete r m i)
     => Resource r -> ResourceConfig m -> m ()
-serveWith r cfg =
-    method GET (getResource cfg (serveMediaWith cfg :: r -> m ()))
-    <|> method POST (ifTop $ (receiveMediaWith cfg :: m r) >>= store)
-    <|> method PUT ((receiveMediaWith cfg :: m r) >>= updateR . toDiff)
-    <|> method DELETE (deleteResource r cfg)
-    <|> method PATCH ((receiveMediaWith cfg :: m d) >>= updateR)
-    <|> method HEAD (checkResource r cfg)
-    <|> method OPTIONS (getOptions r cfg)
-  where updateR = updateResource r cfg :: d -> m ()
+serveResourceWith r cfg = fetchResourceWith r cfg
+    <|> storeResourceWith r cfg
+    <|> updateResourceWith r cfg
+    <|> deleteResourceWith r cfg
+    <|> checkResourceWith r cfg
+    <|> fetchOptionsWith r cfg
 
 
 ------------------------------------------------------------------------------
--- | Parses the remaining path information, producing identifying information
--- to retrieve the desired resource and serve it to the client with the given
--- function.
-getResource
-    :: (MonadSnap m, FromPath i, Stored m r i d)
-    => ResourceConfig m -> (r -> m ()) -> m ()
-getResource cfg provide = getRequest >>= maybe (pathFailure cfg)
-    (retrieve >=> maybe (lookupFailure cfg) provide) . fromPath . rqPathInfo
+-- | Fetch and serve a resource using the remaining path information, using
+-- the configuration in the monad.
+fetchResource
+    :: (HasResourceConfig m, MonadSnap m, ToMedia r, FromPath i, Fetch r m i)
+    => Resource r -> m ()
+fetchResource r = method GET (resourceConfig >>= fetchResourceWith r)
+    <|> checkResource r <|> fetchOptions r
 
 
 ------------------------------------------------------------------------------
--- | Parses the remaining path information, producing identifying information
--- to delete the desired resource.
-deleteResource
-    :: (MonadSnap m, FromPath i, Stored m r i d)
+-- | Fetch and serve a resource using the remaining path information, using
+-- the given configuration.
+fetchResourceWith
+    :: (MonadSnap m, ToMedia r, FromPath i, Fetch r m i)
     => Resource r -> ResourceConfig m -> m ()
-deleteResource r cfg = getRequest >>=
-    maybe (pathFailure cfg) (delete r) . fromPath . rqPathInfo
+fetchResourceWith r cfg = method GET $ fetchResourceWith' r cfg
+    <|> checkResourceWith r cfg <|> fetchOptionsWith r cfg
 
 
 ------------------------------------------------------------------------------
--- | Parses the remaining path information, producing identifying information
--- to update the desired resource using the given diff data.
+-- | Unrouted form of 'fetchResourceWith'.
+fetchResourceWith'
+    :: forall m r i. (MonadSnap m, ToMedia r, FromPath i, Fetch r m i)
+    => Resource r -> ResourceConfig m -> m ()
+fetchResourceWith' _ cfg = getRequest >>= maybe (pathFailure cfg)
+    (fetch >=> maybe (lookupFailure cfg) serve) . fromPath . rqPathInfo
+  where serve = serveMediaWith cfg :: r -> m ()
+
+
+------------------------------------------------------------------------------
+-- | Store a new resource from the request body, using the configuration in
+-- the monad.
+storeResource
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r, Store r m)
+    => Resource r -> m ()
+storeResource r = method POST $ resourceConfig >>= storeResourceWith' r
+
+
+------------------------------------------------------------------------------
+-- | Store a new resource from the request body, using the given
+-- configuration.
+storeResourceWith
+    :: (MonadSnap m, FromMedia r, Store r m)
+    => Resource r -> ResourceConfig m -> m ()
+storeResourceWith r cfg = method POST $ storeResourceWith' r cfg
+
+
+------------------------------------------------------------------------------
+-- | Unrouted form of 'storeResourceWith'.
+storeResourceWith'
+    :: forall m r. (MonadSnap m, FromMedia r, Store r m)
+    => Resource r -> ResourceConfig m -> m ()
+storeResourceWith' _ cfg = ifTop (receive >>= store) <|> methodFailure cfg
+  where receive = receiveMediaWith cfg :: m r
+
+
+
+------------------------------------------------------------------------------
+-- | Update a resource from the request body, using the configuration in the
+-- monad.
 updateResource
-    :: (MonadSnap m, FromPath i, Diff r d, Stored m r i d)
+    :: (HasResourceConfig m, MonadSnap m, FromMedia r, FromPath i, FromMedia d
+    , Diff r d, Update r m i d)
+    => Resource r -> m ()
+updateResource r = methods [PUT, PATCH]
+    (resourceConfig >>= updateResourceWith r)
+    <|> checkResource r <|> fetchOptions r
+
+
+------------------------------------------------------------------------------
+-- | Update a resource from the request body, using the given configuration.
+updateResourceWith
+    :: forall m r i d. (MonadSnap m, FromMedia r, FromPath i, Diff r d
+    , FromMedia d, Update r m i d)
+    => Resource r -> ResourceConfig m -> m ()
+updateResourceWith r cfg =
+    (method PUT (toDiff <$> (receiveMediaWith cfg :: m r))
+        <|> method PATCH (receiveMediaWith cfg :: m d)
+            >>= updateResourceWith' r cfg)
+    <|> checkResourceWith r cfg <|> fetchOptionsWith r cfg
+
+
+------------------------------------------------------------------------------
+-- | Unrouted form of 'updateResourceWith'.
+updateResourceWith'
+    :: (MonadSnap m, FromPath i, Diff r d, Update r m i d)
     => Resource r -> ResourceConfig m -> d -> m ()
-updateResource r cfg diff = getRequest >>=
+updateResourceWith' r cfg diff = getRequest >>=
     maybe (pathFailure cfg) (flip (update r) diff) . fromPath . rqPathInfo
 
 
 ------------------------------------------------------------------------------
--- | Similar to 'getResource', but only checks if the resource exists, serving
--- an empty body.
-checkResource
-    :: (MonadSnap m, FromPath i, Stored m r i d)
+-- | Delete a resource, using the configuration in the monad.
+deleteResource
+    :: (HasResourceConfig m, MonadSnap m, FromPath i, Delete r m i)
+    => Resource r -> m ()
+deleteResource r = method DELETE (resourceConfig >>= deleteResourceWith' r)
+    <|> checkResource r <|> fetchOptions r
+
+
+------------------------------------------------------------------------------
+-- | Delete a resource, using the given configuration.
+deleteResourceWith
+    :: (MonadSnap m, FromPath i, Delete r m i)
     => Resource r -> ResourceConfig m -> m ()
-checkResource r cfg = getRequest >>= maybe (pathFailure cfg)
+deleteResourceWith r cfg = method DELETE (deleteResourceWith' r cfg)
+    <|> checkResourceWith r cfg <|> fetchOptionsWith r cfg
+
+
+------------------------------------------------------------------------------
+-- | Unrouted form of 'deleteResourceWith'.
+deleteResourceWith'
+    :: (MonadSnap m, FromPath i, Delete r m i)
+    => Resource r -> ResourceConfig m -> m ()
+deleteResourceWith' r cfg = getRequest >>=
+    maybe (pathFailure cfg) (delete r) . fromPath . rqPathInfo
+
+
+------------------------------------------------------------------------------
+-- | Similar to 'fetchResource', but only checks if the resource exists,
+-- serving an empty body.
+checkResource
+    :: (HasResourceConfig m, MonadSnap m, FromPath i, Exists r m i)
+    => Resource r -> m ()
+checkResource r = method HEAD $ resourceConfig >>= checkResourceWith' r
+
+
+------------------------------------------------------------------------------
+-- | Similar to 'fetchResource', but only checks if the resource exists,
+-- serving an empty body.
+checkResourceWith
+    :: (MonadSnap m, FromPath i, Exists r m i)
+    => Resource r -> ResourceConfig m -> m ()
+checkResourceWith r cfg = method HEAD $ checkResourceWith' r cfg
+
+
+------------------------------------------------------------------------------
+-- | Unrouted form of 'checkResourceWith'.
+checkResourceWith'
+    :: (MonadSnap m, FromPath i, Exists r m i)
+    => Resource r -> ResourceConfig m -> m ()
+checkResourceWith' r cfg = getRequest >>= maybe (pathFailure cfg)
     (exists r >=> flip when (lookupFailure cfg) . not) . fromPath . rqPathInfo
 
 
 ------------------------------------------------------------------------------
 -- | Serves either collection or resource options, depending on the path.
-getOptions
-    :: (MonadSnap m, FromPath i, Stored m r i d)
+fetchOptions
+    :: (HasResourceConfig m, MonadSnap m, FromPath i, Exists r m i)
+    => Resource r -> m ()
+fetchOptions r = method OPTIONS $ resourceConfig >>= fetchOptionsWith' r
+
+
+------------------------------------------------------------------------------
+-- | Serves either collection or resource options, depending on the path.
+fetchOptionsWith
+    :: (MonadSnap m, FromPath i, Exists r m i)
     => Resource r -> ResourceConfig m -> m ()
-getOptions r cfg = (ifTop (serveMediaWith cfg CollectionOptions) <|>) $ do
+fetchOptionsWith r cfg = method OPTIONS $ fetchOptionsWith' r cfg
+
+
+------------------------------------------------------------------------------
+-- | Serves either collection or resource options, depending on the path.
+fetchOptionsWith'
+    :: (MonadSnap m, FromPath i, Exists r m i)
+    => Resource r -> ResourceConfig m -> m ()
+fetchOptionsWith' r cfg = ifTop (serveMediaWith cfg CollectionOptions) <|> do
     getRequest >>= maybe (pathFailure cfg) return . fromPath . rqPathInfo >>=
         exists r >>= flip when (lookupFailure cfg) . not
     serveMediaWith cfg ResourceOptions

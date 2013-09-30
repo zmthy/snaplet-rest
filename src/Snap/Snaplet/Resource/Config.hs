@@ -26,6 +26,9 @@ data ResourceConfig m = ResourceConfig
     -- | Action to run if the requested resource cannot be found.
     , onLookupFailure :: m ()
 
+    -- | Action to run an invalid method is requested on a resource.
+    , onMethodFailure :: m ()
+
     -- | Action to run if the response media type is not supported.
     , onAcceptFailure :: m ()
 
@@ -53,6 +56,7 @@ defaultConfig = ResourceConfig
     { onHeaderFailure = return ()
     , onPathFailure = return ()
     , onLookupFailure = return ()
+    , onMethodFailure = return ()
     , onAcceptFailure = return ()
     , onContentTypeFailure = return ()
     , onRequestFailure = return ()

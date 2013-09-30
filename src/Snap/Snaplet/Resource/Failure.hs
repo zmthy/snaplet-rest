@@ -3,6 +3,7 @@ module Snap.Snaplet.Resource.Failure
     ( headerFailure
     , pathFailure
     , lookupFailure
+    , methodFailure
     , acceptFailure
     , contentTypeFailure
     , requestFailure
@@ -31,6 +32,12 @@ pathFailure = failure 400 . onPathFailure
 -- | Serves a 404 error and runs the handler specified in the configuration.
 lookupFailure :: MonadSnap m => ResourceConfig m -> m a
 lookupFailure = failure 404 . onLookupFailure
+
+
+------------------------------------------------------------------------------
+-- | Serves a 405 error and runs the handler specified in the configuration.
+methodFailure :: MonadSnap m => ResourceConfig m -> m a
+methodFailure = failure 405 . onMethodFailure
 
 
 ------------------------------------------------------------------------------

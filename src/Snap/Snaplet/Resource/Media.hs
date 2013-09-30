@@ -21,13 +21,13 @@ module Snap.Snaplet.Resource.Media
     ) where
 
 ------------------------------------------------------------------------------
-import qualified Network.HTTP.Accept.MediaType as MT
+import qualified Network.HTTP.Media.MediaType as MT
 
 ------------------------------------------------------------------------------
 import Control.Applicative
 import Data.ByteString               (ByteString)
 import Data.ByteString.Lazy          (toStrict)
-import Network.HTTP.Accept.MediaType (MediaType)
+import Network.HTTP.Media.MediaType (MediaType)
 import Snap.Accept                   (accepts)
 import Snap.Core
 
