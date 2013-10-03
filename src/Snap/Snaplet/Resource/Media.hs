@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, RankNTypes #-}
 
 ------------------------------------------------------------------------------
 -- | Defines type classes for converting back and forth from media
@@ -25,11 +25,13 @@ import qualified Network.HTTP.Media.MediaType as MT
 
 ------------------------------------------------------------------------------
 import Control.Applicative
+import Control.Monad
 import Data.ByteString      (ByteString)
 import Data.ByteString.Lazy (toStrict)
 import Network.HTTP.Media   (MediaType, mapContent)
 import Snap.Accept          (accepts)
 import Snap.Core
+import Snap.Snaplet         (Handler)
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Resource.Config
@@ -59,22 +61,23 @@ class ToMedia r m where
 
 ------------------------------------------------------------------------------
 -- | Serve the given media using the configuration in the monad.
-serveMedia :: (HasResourceConfig m, MonadSnap m, ToMedia r m) => r -> m ()
-serveMedia r = resourceConfig >>= flip serveMediaWith r
+serveMedia
+    :: (HasResourceConfig b, ToMedia r (Handler b b)) => r -> Handler b b ()
+serveMedia r = getResourceConfig >>= flip serveMediaWith r
 
 
 ------------------------------------------------------------------------------
 -- | Serve the given media using the given configuration.
 serveMediaWith :: (MonadSnap m, ToMedia r m) => ResourceConfig m -> r -> m ()
-serveMediaWith cfg r =
-    accepts (map (fmap provideWith) representations) <|> acceptFailure cfg
-  where provideWith f = f r >>= writeBS
+serveMediaWith cfg r = accepts
+    (map (fmap $ ($ r) >=> writeBS) representations) <|> acceptFailure cfg
 
 
 ------------------------------------------------------------------------------
 -- | Receive media using the configureation in the monad.
-receiveMedia :: (HasResourceConfig m, MonadSnap m, FromMedia r m) => m r
-receiveMedia = resourceConfig >>= receiveMediaWith
+receiveMedia
+    :: (HasResourceConfig b, FromMedia r (Handler b b)) => Handler b b r
+receiveMedia = getResourceConfig >>= receiveMediaWith
 
 
 ------------------------------------------------------------------------------

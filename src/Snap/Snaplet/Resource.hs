@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Resource
@@ -28,9 +28,12 @@ module Snap.Snaplet.Resource
     , Diff (..)
 
     -- * Config
-    , HasResourceConfig (..)
     , ResourceConfig (..)
     , defaultConfig
+    , HasResourceConfig (..)
+    , Resources
+    , resourceInit
+    , resourceInitDefault
 
     -- * Proxy
     , Resource (..)
@@ -40,6 +43,7 @@ module Snap.Snaplet.Resource
 import Control.Applicative
 import Control.Monad
 import Snap.Core
+import Snap.Snaplet        (Handler)
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Resource.Config
@@ -55,10 +59,11 @@ import Snap.Snaplet.Resource.Stored
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the configuration in the monad.
 serveResource
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r m, ToMedia r m
-    , FromPath i, FromMedia d m, Diff r d, Fetch r m i, Store r m
-    , Update r m i d, Delete r m i)
-    => Resource r -> m ()
+    :: (HasResourceConfig b, FromMedia r (Handler b b)
+    , ToMedia r (Handler b b), FromPath i, FromMedia d (Handler b b)
+    , Diff r d, Fetch r (Handler b b) i, Store r (Handler b b)
+    , Update r (Handler b b) i d, Delete r (Handler b b) i)
+    => Resource r -> Handler b b ()
 serveResource r = fetchResource r
     <|> storeResource r
     <|> updateResource r
@@ -85,10 +90,10 @@ serveResourceWith r cfg = fetchResourceWith r cfg
 -- | Fetch and serve a resource using the remaining path information, using
 -- the configuration in the monad.
 fetchResource
-    :: (HasResourceConfig m, MonadSnap m, ToMedia r m, FromPath i
-    , Fetch r m i)
-    => Resource r -> m ()
-fetchResource r = method GET (resourceConfig >>= fetchResourceWith r)
+    :: (HasResourceConfig b, ToMedia r (Handler b b), FromPath i
+    , Fetch r (Handler b b) i)
+    => Resource r -> Handler b b ()
+fetchResource r = method GET (getResourceConfig >>= fetchResourceWith r)
     <|> checkResource r <|> fetchOptions r
 
 
@@ -116,9 +121,9 @@ fetchResourceWith' _ cfg = getRequest >>= maybe (pathFailure cfg)
 -- | Store a new resource from the request body, using the configuration in
 -- the monad.
 storeResource
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r m, Store r m)
-    => Resource r -> m ()
-storeResource r = method POST $ resourceConfig >>= storeResourceWith' r
+    :: (HasResourceConfig b, FromMedia r (Handler b b), Store r (Handler b b))
+    => Resource r -> Handler b b ()
+storeResource r = method POST $ getResourceConfig >>= storeResourceWith' r
 
 
 ------------------------------------------------------------------------------
@@ -144,11 +149,11 @@ storeResourceWith' _ cfg = ifTop (receive >>= store) <|> methodFailure cfg
 -- | Update a resource from the request body, using the configuration in the
 -- monad.
 updateResource
-    :: (HasResourceConfig m, MonadSnap m, FromMedia r m, FromPath i
-    , FromMedia d m, Diff r d, Update r m i d)
-    => Resource r -> m ()
+    :: (HasResourceConfig b, FromMedia r (Handler b b), FromPath i
+    , FromMedia d (Handler b b), Diff r d, Update r (Handler b b) i d)
+    => Resource r -> Handler b b ()
 updateResource r = methods [PUT, PATCH]
-    (resourceConfig >>= updateResourceWith r)
+    (getResourceConfig >>= updateResourceWith r)
     <|> checkResource r <|> fetchOptions r
 
 
@@ -177,9 +182,9 @@ updateResourceWith' r cfg diff = getRequest >>=
 ------------------------------------------------------------------------------
 -- | Delete a resource, using the configuration in the monad.
 deleteResource
-    :: (HasResourceConfig m, MonadSnap m, FromPath i, Delete r m i)
-    => Resource r -> m ()
-deleteResource r = method DELETE (resourceConfig >>= deleteResourceWith' r)
+    :: (HasResourceConfig b, FromPath i, Delete r (Handler b b) i)
+    => Resource r -> Handler b b ()
+deleteResource r = method DELETE (getResourceConfig >>= deleteResourceWith' r)
     <|> checkResource r <|> fetchOptions r
 
 
@@ -205,9 +210,9 @@ deleteResourceWith' r cfg = getRequest >>=
 -- | Similar to 'fetchResource', but only checks if the resource exists,
 -- serving an empty body.
 checkResource
-    :: (HasResourceConfig m, MonadSnap m, FromPath i, Exists r m i)
-    => Resource r -> m ()
-checkResource r = method HEAD $ resourceConfig >>= checkResourceWith' r
+    :: (HasResourceConfig b, FromPath i, Exists r (Handler b b) i)
+    => Resource r -> Handler b b ()
+checkResource r = method HEAD $ getResourceConfig >>= checkResourceWith' r
 
 
 ------------------------------------------------------------------------------
@@ -231,9 +236,9 @@ checkResourceWith' r cfg = getRequest >>= maybe (pathFailure cfg)
 ------------------------------------------------------------------------------
 -- | Serves either collection or resource options, depending on the path.
 fetchOptions
-    :: (HasResourceConfig m, MonadSnap m, FromPath i, Exists r m i)
-    => Resource r -> m ()
-fetchOptions r = method OPTIONS $ resourceConfig >>= fetchOptionsWith' r
+    :: (HasResourceConfig b, FromPath i, Exists r (Handler b b) i)
+    => Resource r -> Handler b b ()
+fetchOptions r = method OPTIONS $ getResourceConfig >>= fetchOptionsWith' r
 
 
 ------------------------------------------------------------------------------

@@ -7,10 +7,19 @@ module Snap.Snaplet.Resource.Config
 
     -- * Snaplet type class
     , HasResourceConfig (..)
+    , Resources
+    , resourceInit
+    , resourceInitDefault
+
+    -- * Local utility
+    , getResourceConfig
     ) where
 
 ------------------------------------------------------------------------------
-import Data.Int  (Int64)
+import Control.Monad.State (get)
+import Data.Int            (Int64)
+import Data.Text           (Text)
+import Snap.Snaplet
 
 
 ------------------------------------------------------------------------------
@@ -40,6 +49,7 @@ data ResourceConfig m = ResourceConfig
 
     -- | Maximum size of request bodies allowed when receiving resources.
     , maxRequestBodySize :: Int64
+
     }
 
 
@@ -47,8 +57,7 @@ data ResourceConfig m = ResourceConfig
 -- | The default configuration settings.
 --
 -- > defaultConfig = ResourceConfig
--- >     { onServeFailure = return ()
--- >     , onReceiveFailure = return ()
+-- >     { on*Failure = return ()
 -- >     , maxRequestBodySize = 8192
 -- >     }
 defaultConfig :: Monad m => ResourceConfig m
@@ -66,7 +75,45 @@ defaultConfig = ResourceConfig
 
 ------------------------------------------------------------------------------
 -- | The type class for an implementing Snaplet.
-class HasResourceConfig m where
+class HasResourceConfig b where
+
     -- | Retrieve the configuration from the Snaplet monad.
-    resourceConfig :: m (ResourceConfig m)
+    resourceLens :: SnapletLens (Snaplet b) (ResourceConfig (Handler b b))
+
+
+------------------------------------------------------------------------------
+-- | Convenience alias of 'ResourceConfig'.
+type Resources b = ResourceConfig (Handler b b)
+
+
+------------------------------------------------------------------------------
+-- | Initialize the resource snaplet with the given configuration.
+resourceInit
+    :: ResourceConfig (Handler b b)
+    -> SnapletInit b (Resources b)
+resourceInit = makeSnaplet snapletName snapletDescription Nothing . return
+
+
+------------------------------------------------------------------------------
+-- | Initialize the resource snaplet with the default configuration.
+resourceInitDefault :: SnapletInit b (Resources b)
+resourceInitDefault = makeSnaplet snapletName snapletDescription Nothing $
+    return defaultConfig
+
+
+------------------------------------------------------------------------------
+snapletName :: Text
+snapletName = "rest-resources"
+
+
+------------------------------------------------------------------------------
+snapletDescription :: Text
+snapletDescription = "REST resources"
+
+
+------------------------------------------------------------------------------
+-- | Returns the resource configuration.
+getResourceConfig
+    :: HasResourceConfig b => Handler b v (ResourceConfig (Handler b b))
+getResourceConfig = withTop' resourceLens get
 
