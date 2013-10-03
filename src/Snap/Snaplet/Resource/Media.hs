@@ -25,10 +25,10 @@ import qualified Network.HTTP.Media.MediaType as MT
 
 ------------------------------------------------------------------------------
 import Control.Applicative
-import Data.ByteString               (ByteString)
-import Data.ByteString.Lazy          (toStrict)
-import Network.HTTP.Media.MediaType (MediaType)
-import Snap.Accept                   (accepts)
+import Data.ByteString      (ByteString)
+import Data.ByteString.Lazy (toStrict)
+import Network.HTTP.Media   (MediaType, mapContent)
+import Snap.Accept          (accepts)
 import Snap.Core
 
 ------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ receiveMediaWith :: (MonadSnap m, FromMedia r) => ResourceConfig m -> m r
 receiveMediaWith cfg = do
     header <- getHeader "Content-Type" <$> getRequest
     ctype  <- mayFail headerFailure $ header >>= MT.parse
-    parser <- mayFail contentTypeFailure $ lookup ctype parsers
+    parser <- mayFail contentTypeFailure $ mapContent ctype parsers
     body   <- toStrict <$> readRequestBody (maxRequestBodySize cfg)
     mayFail requestFailure $ parser body
   where mayFail handler = maybe (handler cfg) return
