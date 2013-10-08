@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
-module Snap.Snaplet.Resource.Failure
+module Snap.Snaplet.Rest.Failure
     ( headerFailure
     , pathFailure
     , lookupFailure
@@ -13,7 +13,7 @@ module Snap.Snaplet.Resource.Failure
 import Snap.Core
 
 ------------------------------------------------------------------------------
-import Snap.Snaplet.Resource.Config
+import Snap.Snaplet.Rest.Config
 
 
 ------------------------------------------------------------------------------

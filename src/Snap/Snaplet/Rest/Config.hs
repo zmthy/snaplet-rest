@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
-module Snap.Snaplet.Resource.Config
+module Snap.Snaplet.Rest.Config
     (
     -- * Configuration
       ResourceConfig (..)

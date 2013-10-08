@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 ------------------------------------------------------------------------------
-module Snap.Snaplet.Resource.Path
+module Snap.Snaplet.Rest.Path
     ( FromPath (..)
     ) where
 

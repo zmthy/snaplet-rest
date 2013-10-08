@@ -26,20 +26,22 @@ library
   other-extensions:
     FlexibleInstances
     FunctionalDependencies
+    Rank2Types
     RankNTypes
     ScopedTypeVariables
 
   exposed-modules:
-    Snap.Snaplet.Resource
-    Snap.Snaplet.Resource.Config
-    Snap.Snaplet.Resource.Diff
-    Snap.Snaplet.Resource.Media
-    Snap.Snaplet.Resource.Path
-    Snap.Snaplet.Resource.Proxy
-    Snap.Snaplet.Resource.Stored
+    Snap.Snaplet.Rest
+    Snap.Snaplet.Rest.Config
+    Snap.Snaplet.Rest.Diff
+    Snap.Snaplet.Rest.Media
+    Snap.Snaplet.Rest.Path
+    Snap.Snaplet.Rest.Resource
+    Snap.Snaplet.Rest.Resource.Builder
   other-modules:
-    Snap.Snaplet.Resource.Failure
-    Snap.Snaplet.Resource.Options
+    Snap.Snaplet.Rest.Failure
+    Snap.Snaplet.Rest.Options
+    Snap.Snaplet.Rest.Resource.Internal
 
   build-depends:
     aeson            >= 0.6.2  && < 0.7,
@@ -47,12 +49,14 @@ library
     bytestring       >= 0.10.0 && < 0.11,
     case-insensitive >= 1.0.0  && < 1.1,
     http-media       >= 0.1.0  && < 0.2,
+    lens             >= 3.9.0  && < 3.10,
     mtl              >= 2.1.2  && < 2.2,
     snap             >= 0.13.0 && < 0.14,
     snap-accept      >= 0.1.0  && < 0.2,
     snap-core        >= 0.9.4  && < 0.10,
     text             >= 0.11.3 && < 0.12,
-    utf8-string      >= 0.3.7  && < 0.4
+    utf8-string      >= 0.3.7  && < 0.4,
+    void             >= 0.6.1  && < 0.7
 
 source-repository head
   type:     git

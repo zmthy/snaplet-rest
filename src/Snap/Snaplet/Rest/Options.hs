@@ -2,13 +2,13 @@
 
 ------------------------------------------------------------------------------
 -- | Specifies client options for given path point on the server.
-module Snap.Snaplet.Resource.Options
+module Snap.Snaplet.Rest.Options
     ( CollectionOptions (..)
     , ResourceOptions (..)
     ) where
 
 ------------------------------------------------------------------------------
-import Snap.Snaplet.Resource.Media
+import Snap.Snaplet.Rest.Media
 
 
 ------------------------------------------------------------------------------
