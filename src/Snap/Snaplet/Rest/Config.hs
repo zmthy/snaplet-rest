@@ -26,8 +26,11 @@ import Snap.Snaplet
 -- | Configuration data.
 data ResourceConfig m = ResourceConfig
     {
+    -- | Maximum size of request bodies allowed when receiving resources.
+      maxRequestBodySize :: Int64
+
     -- | Action to run if the request header parsing fails.
-      onHeaderFailure :: m ()
+    , onHeaderFailure :: m ()
 
     -- | Action to run if the resource path parsing fails.
     , onPathFailure :: m ()
@@ -47,9 +50,6 @@ data ResourceConfig m = ResourceConfig
     -- | Action to run if the request body parse fails.
     , onRequestFailure :: m ()
 
-    -- | Maximum size of request bodies allowed when receiving resources.
-    , maxRequestBodySize :: Int64
-
     }
 
 
@@ -62,14 +62,14 @@ data ResourceConfig m = ResourceConfig
 -- >     }
 defaultConfig :: Monad m => ResourceConfig m
 defaultConfig = ResourceConfig
-    { onHeaderFailure = return ()
-    , onPathFailure = return ()
-    , onLookupFailure = return ()
-    , onMethodFailure = return ()
-    , onAcceptFailure = return ()
+    { maxRequestBodySize   = 8192
+    , onHeaderFailure      = return ()
+    , onPathFailure        = return ()
+    , onLookupFailure      = return ()
+    , onMethodFailure      = return ()
+    , onAcceptFailure      = return ()
     , onContentTypeFailure = return ()
-    , onRequestFailure = return ()
-    , maxRequestBodySize = 8192
+    , onRequestFailure     = return ()
     }
 
 

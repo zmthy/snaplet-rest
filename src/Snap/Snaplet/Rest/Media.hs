@@ -21,13 +21,14 @@ module Snap.Snaplet.Rest.Media
     ) where
 
 ------------------------------------------------------------------------------
+import qualified Data.ByteString              as BS
+import qualified Data.ByteString.Lazy         as LBS
 import qualified Network.HTTP.Media.MediaType as MT
 
 ------------------------------------------------------------------------------
 import Control.Applicative
 import Control.Monad
 import Data.ByteString      (ByteString)
-import Data.ByteString.Lazy (toStrict)
 import Network.HTTP.Media   (MediaType, mapContent)
 import Snap.Accept          (accepts)
 import Snap.Core
@@ -79,7 +80,11 @@ serveMedia rep = getResourceConfig >>= flip serveMediaWith rep
 serveMediaWith
     :: (MonadSnap m, ToMedia rep m) => ResourceConfig m -> rep -> m ()
 serveMediaWith cfg rep = accepts
-    (map (fmap $ ($ rep) >=> writeBS) representations) <|> acceptFailure cfg
+    (map (fmap $ writeDone <=< ($ rep)) representations) <|> acceptFailure cfg
+  where
+    writeDone bs = do
+        modifyResponse $ setContentLength $ fromIntegral $ BS.length bs
+        writeBS bs
 
 
 ------------------------------------------------------------------------------
@@ -97,7 +102,7 @@ receiveMediaWith cfg = do
     header <- getHeader "Content-Type" <$> getRequest
     ctype  <- mayFail headerFailure $ header >>= MT.parse
     parser <- mayFail contentTypeFailure $ mapContent ctype parsers
-    body   <- toStrict <$> readRequestBody (maxRequestBodySize cfg)
+    body   <- LBS.toStrict <$> readRequestBody (maxRequestBodySize cfg)
     parser body >>= mayFail requestFailure
   where mayFail handler = maybe (handler cfg) return
 

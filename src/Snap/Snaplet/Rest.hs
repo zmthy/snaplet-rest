@@ -41,7 +41,6 @@ module Snap.Snaplet.Rest
 ------------------------------------------------------------------------------
 import Control.Applicative
 import Control.Monad
-import Data.Maybe
 import Snap.Core
 import Snap.Snaplet        (Handler)
 
@@ -74,16 +73,14 @@ serveResourceWith
     :: forall rep par m id diff. (MonadSnap m, FromMedia par m, ToMedia rep m
     , FromPath id, FromMedia diff m, Diff par diff)
     => SplitResource rep par m id diff -> ResourceConfig m -> m ()
-serveResourceWith res cfg =
-    serveRoute [GET] cfg fetchResourceWith (fetch res) $
-    serveRoute [POST] cfg storeResourceWith (store res) $
-    serveRoute [PUT, PATCH] cfg (updateResourceWith toDiff') (update res) $
-    serveRoute [DELETE] cfg deleteResourceWith (delete res) $
-    serveRoute [HEAD] cfg checkResourceWith exists' $
-    serveRoute [OPTIONS] cfg fetchOptionsWith exists' pass
-  where
-    exists' = exists res <|> fmap (fmap isJust .) (fetch res)
-    toDiff' = toDiff :: par -> diff
+serveResourceWith res cfg = ($ pass)
+    $ serveRoute [HEAD] cfg checkResourceWith (exists res)
+    . serveRoute [OPTIONS] cfg fetchOptionsWith (Just res)
+    . serveRoute [PUT, PATCH] cfg (updateResourceWith toDiff') (update res)
+    . serveRoute [DELETE] cfg deleteResourceWith (delete res)
+    . serveRoute [POST] cfg (storeResourceWith res) (store res)
+    . serveRoute [GET] cfg fetchResourceWith (fetch res)
+  where toDiff' = toDiff :: par -> diff
 
 
 ------------------------------------------------------------------------------
@@ -107,9 +104,10 @@ fetchResourceWith cfg fetch' = getRequest >>= maybe (pathFailure cfg)
 -- | Store a new resource from the request body.
 storeResourceWith
     :: (MonadSnap m, FromMedia par m)
-    => ResourceConfig m -> (par -> m ()) -> m ()
-storeResourceWith cfg store' = ifTop (receiveMediaWith cfg >>= store')
-    <|> methodFailure cfg
+    => SplitResource rep par m id diff -> ResourceConfig m -> (par -> m ())
+    -> m ()
+storeResourceWith res cfg store' = ifTop (receiveMediaWith cfg >>= store')
+    <|> setAllow (optionsFor res) >> methodFailure cfg
 
 
 ------------------------------------------------------------------------------
@@ -154,9 +152,8 @@ checkResourceWith cfg exists' = getRequest >>= maybe (pathFailure cfg)
 -- | Serves either collection or resource options, depending on the path.
 fetchOptionsWith
     :: (MonadSnap m, FromPath id)
-    => ResourceConfig m -> (id -> m Bool) -> m ()
-fetchOptionsWith cfg e = ifTop (serveMediaWith cfg CollectionOptions) <|> do
-    getRequest >>= maybe (pathFailure cfg) return . fromPath . rqPathInfo >>=
-        e >>= flip when (lookupFailure cfg) . not
-    serveMediaWith cfg ResourceOptions
+    => ResourceConfig m -> SplitResource rep par m id diff -> m ()
+fetchOptionsWith _ res = do
+    setAllow $ optionsFor res
+    modifyResponse $ setContentLength 0
 

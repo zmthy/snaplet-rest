@@ -16,7 +16,8 @@ module Snap.Snaplet.Rest.Resource.Builder
     ) where
 
 ------------------------------------------------------------------------------
-import Data.Maybe          (isJust)
+import Control.Applicative
+import Data.Maybe
 import Control.Lens.Setter
 
 ------------------------------------------------------------------------------
@@ -38,11 +39,11 @@ data ResourceBuilder rep par m id diff = ResourceBuilder
 
 ------------------------------------------------------------------------------
 buildResource
-    :: (ResourceBuilder rep par m id diff
+    :: Functor m => (ResourceBuilder rep par m id diff
     -> ResourceBuilder rep par m id diff)
     -> SplitResource rep par m id diff
 buildResource f = Resource
-    { Resource.exists = _exists rb
+    { Resource.exists = _exists rb <|> (fmap isJust .) <$> _fetch rb
     , Resource.fetch  = _fetch rb
     , Resource.store  = _store rb
     , Resource.update = _update rb
