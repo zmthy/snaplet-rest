@@ -74,12 +74,11 @@ serveResourceWith
     , FromPath id, FromMedia diff m, Diff par diff)
     => SplitResource rep par m id diff -> ResourceConfig m -> m ()
 serveResourceWith res cfg = ($ pass)
-    $ serveRoute [HEAD] cfg checkResourceWith (exists res)
-    . serveRoute [OPTIONS] cfg fetchOptionsWith (Just res)
+    $ serveRoute [OPTIONS] cfg fetchOptionsWith (Just res)
     . serveRoute [PUT, PATCH] cfg (updateResourceWith toDiff') (update res)
     . serveRoute [DELETE] cfg deleteResourceWith (delete res)
     . serveRoute [POST] cfg (storeResourceWith res) (store res)
-    . serveRoute [GET] cfg fetchResourceWith (fetch res)
+    . serveRoute [GET, HEAD] cfg fetchResourceWith (fetch res)
   where toDiff' = toDiff :: par -> diff
 
 
@@ -136,16 +135,6 @@ deleteResourceWith
     :: (MonadSnap m, FromPath id) => ResourceConfig m -> (id -> m ()) -> m ()
 deleteResourceWith cfg delete' = getRequest >>=
     maybe (pathFailure cfg) delete' . fromPath . rqPathInfo
-
-
-------------------------------------------------------------------------------
--- | Similar to 'fetchResource', but only checks if the resource exists,
--- serving an empty body.
-checkResourceWith
-    :: (MonadSnap m, FromPath id)
-    => ResourceConfig m -> (id -> m Bool) -> m ()
-checkResourceWith cfg exists' = getRequest >>= maybe (pathFailure cfg)
-    (exists' >=> flip when (lookupFailure cfg) . not) . fromPath . rqPathInfo
 
 
 ------------------------------------------------------------------------------
