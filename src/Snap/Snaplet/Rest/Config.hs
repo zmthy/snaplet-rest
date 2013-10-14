@@ -16,9 +16,13 @@ module Snap.Snaplet.Rest.Config
     ) where
 
 ------------------------------------------------------------------------------
+import qualified Data.ByteString as BS
+
+------------------------------------------------------------------------------
 import Control.Monad.State (get)
 import Data.Int            (Int64)
 import Data.Text           (Text)
+import Snap.Core
 import Snap.Snaplet
 
 
@@ -48,7 +52,7 @@ data ResourceConfig m = ResourceConfig
     , onContentTypeFailure :: m ()
 
     -- | Action to run if the request body parse fails.
-    , onRequestFailure :: m ()
+    , onContentParseFailure :: m ()
 
     }
 
@@ -57,20 +61,25 @@ data ResourceConfig m = ResourceConfig
 -- | The default configuration settings.
 --
 -- > defaultConfig = ResourceConfig
--- >     { on*Failure = return ()
--- >     , maxRequestBodySize = 8192
+-- >     { maxRequestBodySize = 8192
+-- >     , on*Failure = write "reason"
 -- >     }
-defaultConfig :: Monad m => ResourceConfig m
+defaultConfig :: MonadSnap m => ResourceConfig m
 defaultConfig = ResourceConfig
-    { maxRequestBodySize   = 8192
-    , onHeaderFailure      = return ()
-    , onPathFailure        = return ()
-    , onLookupFailure      = return ()
-    , onMethodFailure      = return ()
-    , onAcceptFailure      = return ()
-    , onContentTypeFailure = return ()
-    , onRequestFailure     = return ()
+    { maxRequestBodySize    = 8192
+    , onHeaderFailure       = write "Failed to parse request headers\n"
+    , onPathFailure         = write "Failed to parse resource path\n"
+    , onLookupFailure       = write "Failed to find resource\n"
+    , onMethodFailure       = write "Method not allowed\n"
+    , onAcceptFailure       = write "No required media types are supported\n"
+    , onContentTypeFailure  = write "No parser for request content available\n"
+    , onContentParseFailure = write "Failed to parse request content\n"
     }
+  where
+    write msg = do
+        modifyResponse $ setContentType "text/plain" .
+            setContentLength (fromIntegral $ BS.length msg)
+        writeBS msg
 
 
 ------------------------------------------------------------------------------

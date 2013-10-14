@@ -21,11 +21,9 @@ library
   default-language: Haskell2010
   default-extensions:
     MultiParamTypeClasses
-    TypeSynonymInstances
     OverloadedStrings
   other-extensions:
     FlexibleInstances
-    FunctionalDependencies
     Rank2Types
     RankNTypes
     ScopedTypeVariables
@@ -39,6 +37,7 @@ library
     Snap.Snaplet.Rest.Resource
     Snap.Snaplet.Rest.Resource.Builder
   other-modules:
+    Snap.Snaplet.Rest.Diff.Internal
     Snap.Snaplet.Rest.Failure
     Snap.Snaplet.Rest.Options
     Snap.Snaplet.Rest.Resource.Internal

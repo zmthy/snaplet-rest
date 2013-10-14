@@ -30,19 +30,19 @@ instance FromPath Int where
         safeRead _         = Nothing
 
 instance FromPath (CI String) where
-    fromPath p = mk . BS.toString <$> notEmpty p
+    fromPath p = mk . BS.toString <$> checkSplit p
 
 instance FromPath (CI Text.Text) where
-    fromPath p = mk . Text.pack . BS.toString <$> notEmpty p
+    fromPath p = mk . Text.pack . BS.toString <$> checkSplit p
 
 instance FromPath (CI ByteString) where
-    fromPath p = mk <$> notEmpty p
+    fromPath p = mk <$> checkSplit p
 
 instance FromPath (CI LBS.ByteString) where
-    fromPath p = mk . LBS.fromStrict <$> notEmpty p
+    fromPath p = mk . LBS.fromStrict <$> checkSplit p
 
 instance FromPath a => FromPath [a] where
-    fromPath = mapM (notEmpty >=> fromPath) . BS.split 47
+    fromPath = mapM (checkSplit >=> fromPath) . BS.split 47
 
 instance (FromPath a, FromPath b) => FromPath (a, b) where
     fromPath p = do
@@ -60,8 +60,8 @@ instance (FromPath a, FromPath b, FromPath c) => FromPath (a, b, c) where
 
 
 ------------------------------------------------------------------------------
--- | Ensures that the given 'ByteString' is not empty, evaluating to 'Nothing'
--- if it is.
-notEmpty :: ByteString -> Maybe ByteString
-notEmpty bs = if BS.null bs then Nothing else Just bs
+-- | Ensures that the given 'ByteString' is neither empty nor containing a
+-- path split, evaluating to 'Nothing' in either case.
+checkSplit :: ByteString -> Maybe ByteString
+checkSplit bs = if length (BS.split 47 bs) /= 1 then Nothing else Just bs
 

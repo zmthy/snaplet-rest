@@ -3,18 +3,16 @@ module Snap.Snaplet.Rest.Resource
     (
     -- * Types
       Resource.Resource
-    , Resource.ConstantResource
-    , Resource.StoredResource
-    , Resource.SplitResource
 
     -- * Builder
     , ResourceBuilder
     , buildResource
-    , exists
+    , BuildSetter
     , fetch
     , store
     , update
     , delete
+    , putAction
     ) where
 
 ------------------------------------------------------------------------------

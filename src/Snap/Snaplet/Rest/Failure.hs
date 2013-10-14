@@ -6,7 +6,7 @@ module Snap.Snaplet.Rest.Failure
     , methodFailure
     , acceptFailure
     , contentTypeFailure
-    , requestFailure
+    , contentParseFailure
     ) where
 
 ------------------------------------------------------------------------------
@@ -14,6 +14,8 @@ import Snap.Core
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Rest.Config
+import Snap.Snaplet.Rest.Options
+import Snap.Snaplet.Rest.Resource
 
 
 ------------------------------------------------------------------------------
@@ -35,9 +37,13 @@ lookupFailure = failure 404 . onLookupFailure
 
 
 ------------------------------------------------------------------------------
--- | Serves a 405 error and runs the handler specified in the configuration.
-methodFailure :: MonadSnap m => ResourceConfig m -> m a
-methodFailure = failure 405 . onMethodFailure
+-- | Serves a 405 error and runs the handler specified in the configuration,
+-- specifying which methods are allowed in the Allow header.
+methodFailure
+    :: MonadSnap m => Resource rep par m id diff -> ResourceConfig m -> m a
+methodFailure res cfg = do
+    setAllow (optionsFor res)
+    failure 405 $ onMethodFailure cfg
 
 
 ------------------------------------------------------------------------------
@@ -54,8 +60,8 @@ contentTypeFailure = failure 415 . onContentTypeFailure
 
 ------------------------------------------------------------------------------
 -- | Serves a 400 error and runs the handler specified in the configuration.
-requestFailure :: MonadSnap m => ResourceConfig m -> m a
-requestFailure = failure 400 . onRequestFailure
+contentParseFailure :: MonadSnap m => ResourceConfig m -> m a
+contentParseFailure = failure 400 . onContentParseFailure
 
 
 ------------------------------------------------------------------------------

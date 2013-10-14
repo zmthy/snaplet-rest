@@ -13,21 +13,19 @@ module Snap.Snaplet.Rest
 
     -- * Resource
     , Resource
-    , ConstantResource
-    , StoredResource
-    , SplitResource
 
     -- * Builder
     , Builder.ResourceBuilder
     , Builder.buildResource
-    , Builder.exists
+    , Builder.BuildSetter
     , Builder.fetch
     , Builder.store
     , Builder.update
     , Builder.delete
+    , Builder.putAction
 
     -- * Diff
-    , Diff (..)
+    , Diff (toDiff)
 
     -- * Config
     , ResourceConfig (..)
@@ -41,6 +39,7 @@ module Snap.Snaplet.Rest
 ------------------------------------------------------------------------------
 import Control.Applicative
 import Control.Monad
+import Data.Maybe
 import Snap.Core
 import Snap.Snaplet        (Handler)
 
@@ -49,7 +48,7 @@ import qualified Snap.Snaplet.Rest.Resource.Builder as Builder
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Rest.Config
-import Snap.Snaplet.Rest.Diff
+import Snap.Snaplet.Rest.Diff.Internal
 import Snap.Snaplet.Rest.Failure
 import Snap.Snaplet.Rest.Media
 import Snap.Snaplet.Rest.Options
@@ -63,7 +62,7 @@ serveResource
     :: (HasResourceConfig b, FromMedia par (Handler b b)
     , ToMedia rep (Handler b b), FromPath id, FromMedia diff (Handler b b)
     , Diff par diff)
-    => SplitResource rep par (Handler b b) id diff -> Handler b b ()
+    => Resource rep par (Handler b b) id diff -> Handler b b ()
 serveResource res = getResourceConfig >>= serveResourceWith res
 
 
@@ -72,21 +71,35 @@ serveResource res = getResourceConfig >>= serveResourceWith res
 serveResourceWith
     :: forall rep par m id diff. (MonadSnap m, FromMedia par m, ToMedia rep m
     , FromPath id, FromMedia diff m, Diff par diff)
-    => SplitResource rep par m id diff -> ResourceConfig m -> m ()
-serveResourceWith res cfg = ($ pass)
-    $ serveRoute [OPTIONS] cfg fetchOptionsWith (Just res)
-    . serveRoute [PUT, PATCH] cfg (updateResourceWith toDiff') (update res)
-    . serveRoute [DELETE] cfg deleteResourceWith (delete res)
-    . serveRoute [POST] cfg (storeResourceWith res) (store res)
-    . serveRoute [GET, HEAD] cfg fetchResourceWith (fetch res)
-  where toDiff' = toDiff :: par -> diff
-
-
-------------------------------------------------------------------------------
-serveRoute
-    :: MonadSnap m => [Method] -> ResourceConfig m
-    -> (ResourceConfig m -> a -> m b) -> Maybe a -> m b -> m b
-serveRoute ms cfg rt mf = maybe id (\f -> (methods ms (rt cfg f) <|>)) mf
+    => Resource rep par m id diff -> ResourceConfig m -> m ()
+serveResourceWith res cfg =
+        serveRoute GET fetchResourceWith (fetch res)
+    <|> serveRoute POST postResource (store res)
+    <|> serveRoute DELETE deleteResourceWith (delete res)
+    <|> servePut (putAction res)
+    <|> serveRoute PATCH updateResource (update res)
+    <|> serveRoute OPTIONS fetchOptionsWith (Just res)
+    <|> serveRoute HEAD fetchResourceWith (fetch res)
+  where
+    serveRoute mt rt mf = method mt $ maybe methodFailure' (rt cfg) mf
+    servePut action = case action of
+        TryUpdate  -> flip (serveRoute PUT) (both (store res) (update res)) $
+            \cfg' (store', update') -> do
+                par <- receiveMediaWith cfg'
+                exists <- updateResourceWith' cfg' update' $ toDiff par
+                unless exists $ store' par
+        JustStore  -> serveRoute PUT storeResourceWith (store res)
+        JustUpdate -> flip (serveRoute PUT) (update res) $
+            \cfg' update' -> void $ updateResourceWith toDiff' cfg' update'
+        Disabled   -> method PUT methodFailure'
+    both ma mb = (,) <$> ma <*> mb
+    toDiff' = toDiff :: par -> diff
+    postResource cfg' store' =
+        ifTop (storeResourceWith cfg' store') <|> methodFailure'
+    updateResource cfg' update' = do
+        guard (not $ patchDisabled (Proxy :: Proxy par diff))
+        void $ updateResourceWith id cfg' update'
+    methodFailure' = methodFailure res cfg
 
 
 ------------------------------------------------------------------------------
@@ -94,55 +107,61 @@ serveRoute ms cfg rt mf = maybe id (\f -> (methods ms (rt cfg f) <|>)) mf
 fetchResourceWith
     :: (MonadSnap m, ToMedia rep m, FromPath id)
     => ResourceConfig m -> (id -> m (Maybe rep)) -> m ()
-fetchResourceWith cfg fetch' = getRequest >>= maybe (pathFailure cfg)
+fetchResourceWith cfg fetch' = parsePath >>= maybe (pathFailure cfg)
     (fetch' >=> maybe (lookupFailure cfg) (serveMediaWith cfg))
-    . fromPath . rqPathInfo
 
 
 ------------------------------------------------------------------------------
 -- | Store a new resource from the request body.
 storeResourceWith
     :: (MonadSnap m, FromMedia par m)
-    => SplitResource rep par m id diff -> ResourceConfig m -> (par -> m ())
-    -> m ()
-storeResourceWith res cfg store' = ifTop (receiveMediaWith cfg >>= store')
-    <|> setAllow (optionsFor res) >> methodFailure cfg
+    => ResourceConfig m -> (par -> m ()) -> m ()
+storeResourceWith cfg store' = receiveMediaWith cfg >>= store'
 
 
 ------------------------------------------------------------------------------
 -- | Update a resource from the request body.
 updateResourceWith
     :: (MonadSnap m, FromMedia par m, FromPath id, FromMedia diff m)
-    => (par -> diff) -> ResourceConfig m -> (id -> diff -> m ()) -> m ()
+    => (par -> diff) -> ResourceConfig m -> (id -> diff -> m Bool) -> m Bool
 updateResourceWith toDiff' cfg update' =
-    (method PUT (toDiff' <$> (receiveMediaWith cfg))
-        <|> method PATCH (receiveMediaWith cfg))
-    >>= updateResourceWith' cfg update'
+    toDiff' <$> receiveMediaWith cfg >>= updateResourceWith' cfg update'
 
 
 ------------------------------------------------------------------------------
--- | Unrouted form of 'updateResourceWith'.
+-- | Update a resource with the given value.
 updateResourceWith'
     :: (MonadSnap m, FromPath id)
-    => ResourceConfig m -> (id -> diff -> m ()) -> diff -> m ()
-updateResourceWith' cfg update' diff = getRequest >>=
-    maybe (pathFailure cfg) (flip update' diff) . fromPath . rqPathInfo
+    => ResourceConfig m -> (id -> diff -> m Bool) -> diff -> m Bool
+updateResourceWith' cfg update' diff = parsePath >>=
+    maybe (pathFailure cfg) (flip update' diff)
 
 
 ------------------------------------------------------------------------------
 -- | Delete a resource.
 deleteResourceWith
-    :: (MonadSnap m, FromPath id) => ResourceConfig m -> (id -> m ()) -> m ()
-deleteResourceWith cfg delete' = getRequest >>=
-    maybe (pathFailure cfg) delete' . fromPath . rqPathInfo
+    :: (MonadSnap m, FromPath id)
+    => ResourceConfig m -> (id -> m Bool) -> m ()
+deleteResourceWith cfg delete' = parsePath >>= maybe (pathFailure cfg)
+    (delete' >=> flip unless (lookupFailure cfg))
 
 
 ------------------------------------------------------------------------------
 -- | Serves either collection or resource options, depending on the path.
 fetchOptionsWith
-    :: (MonadSnap m, FromPath id)
-    => ResourceConfig m -> SplitResource rep par m id diff -> m ()
-fetchOptionsWith _ res = do
+    :: forall rep par m id diff. (MonadSnap m, FromPath id)
+    => ResourceConfig m -> Resource rep par m id diff -> m ()
+fetchOptionsWith cfg res = do
+    ifNotTop $ isNothing <$> parsePath' >>= flip when (pathFailure cfg)
     setAllow $ optionsFor res
     modifyResponse $ setContentLength 0
+  where
+    ifNotTop = (ifTop (return ()) <|>)
+    parsePath' = parsePath :: m (Maybe id)
+
+
+------------------------------------------------------------------------------
+-- | Retrieve the remaining path info and parse it into the identifier type.
+parsePath :: (MonadSnap m, FromPath id) => m (Maybe id)
+parsePath = fromPath . rqPathInfo <$> getRequest
 
