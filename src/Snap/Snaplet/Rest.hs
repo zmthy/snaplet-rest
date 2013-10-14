@@ -89,7 +89,7 @@ serveResourceWith res cfg =
                 unless exists $ store' par
         JustStore  -> serveRoute PUT storeResourceWith (store res)
         JustUpdate -> flip (serveRoute PUT) (update res) $
-            \cfg' update' -> void $ updateResourceWith toDiff' cfg' update'
+            \cfg' update' -> updateResourceWith toDiff' cfg' update'
         Disabled   -> method PUT methodFailure'
     both ma mb = (,) <$> ma <*> mb
     toDiff' = toDiff :: par -> diff
@@ -97,7 +97,7 @@ serveResourceWith res cfg =
         ifTop (storeResourceWith cfg' store') <|> methodFailure'
     updateResource cfg' update' = do
         guard (not $ patchDisabled (Proxy :: Proxy par diff))
-        void $ updateResourceWith id cfg' update'
+        updateResourceWith id cfg' update'
     methodFailure' = methodFailure res cfg
 
 
@@ -119,16 +119,18 @@ storeResourceWith cfg store' = receiveMediaWith cfg >>= store'
 
 
 ------------------------------------------------------------------------------
--- | Update a resource from the request body.
+-- | Update a resource from the request body.  Sends a lookup failure if the
+-- update failed.
 updateResourceWith
     :: (MonadSnap m, FromMedia par m, FromPath id, FromMedia diff m)
-    => (par -> diff) -> ResourceConfig m -> (id -> diff -> m Bool) -> m Bool
-updateResourceWith toDiff' cfg update' =
-    toDiff' <$> receiveMediaWith cfg >>= updateResourceWith' cfg update'
+    => (par -> diff) -> ResourceConfig m -> (id -> diff -> m Bool) -> m ()
+updateResourceWith toDiff' cfg update' = toDiff' <$> receiveMediaWith cfg
+    >>= updateResourceWith' cfg update' >>= flip unless (lookupFailure cfg)
 
 
 ------------------------------------------------------------------------------
--- | Update a resource with the given value.
+-- | Update a resource with the given value.  Returns 'True' if the update was
+-- successful.
 updateResourceWith'
     :: (MonadSnap m, FromPath id)
     => ResourceConfig m -> (id -> diff -> m Bool) -> diff -> m Bool
