@@ -17,12 +17,11 @@ module Snap.Snaplet.Rest
     -- * Builder
     , Builder.ResourceBuilder
     , Builder.buildResource
-    , Builder.BuildSetter
-    , Builder.fetch
-    , Builder.store
-    , Builder.update
-    , Builder.delete
-    , Builder.putAction
+    , Builder.setFetch
+    , Builder.setStore
+    , Builder.setUpdate
+    , Builder.setDelete
+    , Builder.setPutAction
 
     -- * Diff
     , Diff (toDiff)

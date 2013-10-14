@@ -7,12 +7,11 @@ module Snap.Snaplet.Rest.Resource
     -- * Builder
     , ResourceBuilder
     , buildResource
-    , BuildSetter
-    , fetch
-    , store
-    , update
-    , delete
-    , putAction
+    , setFetch
+    , setStore
+    , setUpdate
+    , setDelete
+    , setPutAction
     ) where
 
 ------------------------------------------------------------------------------

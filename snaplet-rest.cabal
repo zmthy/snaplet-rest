@@ -24,8 +24,7 @@ library
     OverloadedStrings
   other-extensions:
     FlexibleInstances
-    Rank2Types
-    RankNTypes
+    OverlappingInstances
     ScopedTypeVariables
 
   exposed-modules:

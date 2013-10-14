@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
 
 ------------------------------------------------------------------------------
 -- | Defines type classes for converting back and forth from media
