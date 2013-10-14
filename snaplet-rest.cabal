@@ -1,6 +1,6 @@
-name:          snaplet-rest-resources
+name:          snaplet-rest
 version:       0.1.0
-homepage:      http://github.com/zimothy/snaplet-rest-resources
+homepage:      http://github.com/zimothy/snaplet-rest
 license:       MIT
 license-file:  LICENSE
 author:        Timothy Jones
@@ -60,5 +60,5 @@ library
 
 source-repository head
   type:     git
-  location: git://github.com/zimothy/snaplet-rest-resources.git
+  location: git://github.com/zimothy/snaplet-rest.git
 
