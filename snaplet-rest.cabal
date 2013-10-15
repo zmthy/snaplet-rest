@@ -25,7 +25,6 @@ library
   other-extensions:
     FlexibleInstances
     OverlappingInstances
-    ScopedTypeVariables
 
   exposed-modules:
     Snap.Snaplet.Rest

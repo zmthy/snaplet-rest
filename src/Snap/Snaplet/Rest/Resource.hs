@@ -1,7 +1,7 @@
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Rest.Resource
     (
-    -- * Types
+    -- * Type
       Resource.Resource
 
     -- * Builder
