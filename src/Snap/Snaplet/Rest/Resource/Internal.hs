@@ -18,7 +18,7 @@ import Data.Void (Void)
 -- types are expected to either be the same or 'Void'.  This type is exposed
 -- to allow for other type combinations than the ones supplied above.
 data Resource rep par m id diff = Resource
-    { fetch     :: Maybe (id -> m (Maybe rep))
+    { fetch     :: Maybe (id -> m [rep])
     , store     :: Maybe (par -> m ())
     , update    :: Maybe (id -> diff -> m Bool)
     , delete    :: Maybe (id -> m Bool)
@@ -32,5 +32,4 @@ data PutAction
     = TryUpdate   -- ^ Attempt to update, store if that fails
     | JustStore   -- ^ Always store
     | JustUpdate  -- ^ Always update
-    | Disabled    -- ^ Do not support PUT
 

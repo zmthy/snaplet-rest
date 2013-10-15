@@ -23,6 +23,9 @@ module Snap.Snaplet.Rest
     , Builder.setDelete
     , Builder.setPutAction
 
+    -- * Request parsing
+    , FromRequest (..)
+
     -- * Diff
     , Diff (toDiff)
 
@@ -49,9 +52,9 @@ import qualified Snap.Snaplet.Rest.Resource.Builder as Builder
 import Snap.Snaplet.Rest.Config
 import Snap.Snaplet.Rest.Diff.Internal
 import Snap.Snaplet.Rest.Failure
+import Snap.Snaplet.Rest.FromRequest
 import Snap.Snaplet.Rest.Media
 import Snap.Snaplet.Rest.Options
-import Snap.Snaplet.Rest.Path
 import Snap.Snaplet.Rest.Resource.Internal
 
 
@@ -59,7 +62,7 @@ import Snap.Snaplet.Rest.Resource.Internal
 -- | Serve the specified resource using the configuration in the monad.
 serveResource
     :: (HasResourceConfig b, FromMedia par (Handler b b)
-    , ToMedia rep (Handler b b), FromPath id, FromMedia diff (Handler b b)
+    , ToMedia rep (Handler b b), FromRequest id, FromMedia diff (Handler b b)
     , Diff par diff)
     => Resource rep par (Handler b b) id diff -> Handler b b ()
 serveResource res = getResourceConfig >>= serveResourceWith res
@@ -68,7 +71,7 @@ serveResource res = getResourceConfig >>= serveResourceWith res
 ------------------------------------------------------------------------------
 -- | Serve the specified resource using the given configuration.
 serveResourceWith
-    :: (MonadSnap m, FromMedia par m, ToMedia rep m , FromPath id
+    :: (MonadSnap m, FromMedia par m, ToMedia rep m , FromRequest id
     , FromMedia diff m, Diff par diff)
     => Resource rep par m id diff -> ResourceConfig m -> m ()
 serveResourceWith res cfg =
@@ -96,24 +99,23 @@ serveRoute res cfg mt rt mf = method mt $
 ------------------------------------------------------------------------------
 -- | Produces a PUT response depending on the PutAction in the resource.
 servePut
-    :: (MonadSnap m, FromMedia par m, FromPath id, FromMedia diff m
+    :: (MonadSnap m, FromMedia par m, FromRequest id, FromMedia diff m
     , Diff par diff)
     => Resource rep par m id diff -> ResourceConfig m -> (par -> diff) -> m ()
 servePut res cfg toDiff' = case (putAction res) of
     TryUpdate  -> serveRoute' handlePutWith $ (,) <$> store res <*> update res
     JustStore  -> serveRoute' storeResourceWith (store res)
     JustUpdate -> serveRoute' (updateResourceWith toDiff') (update res)
-    Disabled   -> method PUT $ methodFailure res cfg
   where serveRoute' = serveRoute res cfg PUT
 
 
 ------------------------------------------------------------------------------
 -- | Fetch and serve a resource using the remaining path information.
 fetchResourceWith
-    :: (MonadSnap m, ToMedia rep m, FromPath id)
-    => ResourceConfig m -> (id -> m (Maybe rep)) -> m ()
+    :: (MonadSnap m, ToMedia rep m, FromRequest id)
+    => ResourceConfig m -> (id -> m [rep]) -> m ()
 fetchResourceWith cfg fetch' = parsePath >>= maybe (pathFailure cfg)
-    (fetch' >=> maybe (lookupFailure cfg) (serveMediaWith cfg))
+    (fetch' >=> maybe (lookupFailure cfg) (serveMediaWith cfg) . listToMaybe)
 
 
 ------------------------------------------------------------------------------
@@ -138,7 +140,7 @@ handlePostWith res cfg store' =
 -- | Attempts to update with the request body, and stores it instead if that
 -- fails.
 handlePutWith
-    :: (MonadSnap m, FromMedia par m, FromPath id, Diff par diff)
+    :: (MonadSnap m, FromMedia par m, FromRequest id, Diff par diff)
     => ResourceConfig m -> ((par -> m ()), (id -> diff -> m Bool)) -> m ()
 handlePutWith cfg (store', update') = do
     par <- receiveMediaWith cfg
@@ -149,7 +151,7 @@ handlePutWith cfg (store', update') = do
 -- | Update a resource from the request body.  Sends a lookup failure if the
 -- update failed.
 updateResourceWith
-    :: (MonadSnap m, FromMedia par m, FromPath id, FromMedia diff m)
+    :: (MonadSnap m, FromMedia par m, FromRequest id, FromMedia diff m)
     => (par -> diff) -> ResourceConfig m -> (id -> diff -> m Bool) -> m ()
 updateResourceWith toDiff' cfg update' = toDiff' <$> receiveMediaWith cfg
     >>= updateResourceWith' cfg update' >>= flip unless (lookupFailure cfg)
@@ -159,7 +161,7 @@ updateResourceWith toDiff' cfg update' = toDiff' <$> receiveMediaWith cfg
 -- | Update a resource with the given value.  Returns 'True' if the update was
 -- successful.
 updateResourceWith'
-    :: (MonadSnap m, FromPath id)
+    :: (MonadSnap m, FromRequest id)
     => ResourceConfig m -> (id -> diff -> m Bool) -> diff -> m Bool
 updateResourceWith' cfg update' diff = parsePath >>=
     maybe (pathFailure cfg) (flip update' diff)
@@ -168,18 +170,18 @@ updateResourceWith' cfg update' diff = parsePath >>=
 ------------------------------------------------------------------------------
 -- | Ensures that PATCH is not disabled, then applies an update.
 handlePatchWith
-    :: (MonadSnap m, FromPath id, FromMedia diff m, Diff par diff)
+    :: (MonadSnap m, FromRequest id, FromMedia diff m, Diff par diff)
     => Resource rep par m id diff -> Proxy par diff -> ResourceConfig m
     -> (id -> diff -> m Bool) -> m ()
-handlePatchWith _ proxy cfg update' = do
-    guard (not $ patchDisabled proxy)
+handlePatchWith res proxy cfg update' = do
+    when (patchDisabled proxy) $ methodFailure res cfg
     updateResourceWith id cfg update'
 
 
 ------------------------------------------------------------------------------
 -- | Delete a resource.
 deleteResourceWith
-    :: (MonadSnap m, FromPath id)
+    :: (MonadSnap m, FromRequest id)
     => ResourceConfig m -> (id -> m Bool) -> m ()
 deleteResourceWith cfg delete' = parsePath >>= maybe (pathFailure cfg)
     (delete' >=> flip unless (lookupFailure cfg))
@@ -188,7 +190,7 @@ deleteResourceWith cfg delete' = parsePath >>= maybe (pathFailure cfg)
 ------------------------------------------------------------------------------
 -- | Serves either collection or resource options, depending on the path.
 fetchOptionsWith
-    :: (MonadSnap m, FromPath id)
+    :: (MonadSnap m, FromRequest id)
     => m (Maybe id) -> ResourceConfig m -> Resource rep par m id diff -> m ()
 fetchOptionsWith parsePath' cfg res = do
     ifNotTop $ isNothing <$> parsePath' >>= flip when (pathFailure cfg)
@@ -199,6 +201,6 @@ fetchOptionsWith parsePath' cfg res = do
 
 ------------------------------------------------------------------------------
 -- | Retrieve the remaining path info and parse it into the identifier type.
-parsePath :: (MonadSnap m, FromPath id) => m (Maybe id)
+parsePath :: (MonadSnap m, FromRequest id) => m (Maybe id)
 parsePath = fromPath . rqPathInfo <$> getRequest
 

@@ -45,7 +45,6 @@ optionsFor res = ResourceOptions
         TryUpdate  -> isJust (store res) && isJust (update res)
         JustStore  -> isJust $ store res
         JustUpdate -> isJust $ update res
-        Disabled   -> False
     }
 
 

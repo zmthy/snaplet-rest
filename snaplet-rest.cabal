@@ -31,7 +31,7 @@ library
     Snap.Snaplet.Rest.Config
     Snap.Snaplet.Rest.Diff
     Snap.Snaplet.Rest.Media
-    Snap.Snaplet.Rest.Path
+    Snap.Snaplet.Rest.FromRequest
     Snap.Snaplet.Rest.Resource
     Snap.Snaplet.Rest.Resource.Builder
   other-modules:

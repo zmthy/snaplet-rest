@@ -22,13 +22,13 @@ class Diff res diff where
     -- | Internal method which disables PATCH for the three instances below.
     -- All other instances will keep PATCH enabled.
     patchDisabled :: Proxy res diff -> Bool
-    patchDisabled _ = True
+    patchDisabled _ = False
 
 -- This instance allows 'Void' to be used as the diff type, indicating no
 -- update method is available.  This disables PUT and PATCH.
 instance Diff res Void where
     toDiff _ = error "Cannot produce a void diff"
-    patchDisabled _ = False
+    patchDisabled _ = True
 
 -- This instance allows 'Void' to be used as the resource type, indicating no
 -- store method is available.  This disables PUT (and POST), but not PATCH.
@@ -39,14 +39,14 @@ instance Diff Void res where
 -- partial update method is available.  This disables PATCH, but not PUT.
 instance Diff res res where
     toDiff = id
-    patchDisabled _ = False
+    patchDisabled _ = True
 
 -- This instance accounts for the overlapping instance between the three
 -- previous instances, which indicates neither store or update is available.
 -- This disables POST, PUT, and PATCH.
 instance Diff Void Void where
     toDiff _ = error "Cannot produce a void diff"
-    patchDisabled _ = False
+    patchDisabled _ = True
 
 
 ------------------------------------------------------------------------------

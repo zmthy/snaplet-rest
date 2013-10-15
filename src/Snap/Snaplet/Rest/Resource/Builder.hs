@@ -29,7 +29,7 @@ import Snap.Snaplet.Rest.Resource.Internal
 
 ------------------------------------------------------------------------------
 data ResourceBuilder rep par m id diff = ResourceBuilder
-    { fetch     :: Maybe (id -> m (Maybe rep))
+    { fetch     :: Maybe (id -> m [rep])
     , store     :: Maybe (par -> m ())
     , update    :: Maybe (id -> diff -> m Bool)
     , delete    :: Maybe (id -> m Bool)
@@ -52,10 +52,9 @@ buildResource f = Resource
   where
     rb = f $ ResourceBuilder Nothing Nothing Nothing Nothing Nothing
     putDefault
-        | isJust (store rb) && isJust (update rb) = TryUpdate
-        | isJust $ store rb                       = JustStore
-        | isJust $ update rb                      = JustUpdate
-        | otherwise                               = Disabled
+        | isJust $ store rb  = JustStore
+        | isJust $ update rb = JustUpdate
+        | otherwise          = TryUpdate
 
 
 ------------------------------------------------------------------------------
@@ -75,7 +74,7 @@ data Proxy a b = Proxy
 setFetch
     :: (UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
     , UnVoid id id' (id -> m Bool) (id' -> m Bool))
-    => (id' -> m (Maybe rep))
+    => (id' -> m [rep])
     -> ResourceBuilder Void par m id diff
     -> ResourceBuilder rep par m id' diff
 setFetch = setFetch' Proxy
@@ -84,13 +83,13 @@ setFetch'
     :: (UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
     , UnVoid id id' (id -> m Bool) (id' -> m Bool))
     => Proxy id id'
-    -> (id' -> m (Maybe rep))
+    -> (id' -> m [rep])
     -> ResourceBuilder Void par m id diff
     -> ResourceBuilder rep par m id' diff
 setFetch' p a rb = rb
-    { fetch      = Just a
-    , update    = voidCast p $ update rb
-    , delete    = voidCast p $ delete rb
+    { fetch  = Just a
+    , update = voidCast p $ update rb
+    , delete = voidCast p $ delete rb
     }
 
 
@@ -104,7 +103,7 @@ setStore a rb = rb { store = Just a }
 
 ------------------------------------------------------------------------------
 setUpdate
-    :: (UnVoid id id' (id -> m (Maybe rep)) (id' -> m (Maybe rep))
+    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
     , UnVoid id id' (id -> m Bool) (id' -> m Bool))
     => (id' -> diff -> m Bool)
     -> ResourceBuilder rep par m id Void
@@ -112,7 +111,7 @@ setUpdate
 setUpdate = setUpdate' Proxy
 
 setUpdate'
-    :: (UnVoid id id' (id -> m (Maybe rep)) (id' -> m (Maybe rep))
+    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
     , UnVoid id id' (id -> m Bool) (id' -> m Bool))
     => Proxy id id'
     -> (id' -> diff -> m Bool)
@@ -127,7 +126,7 @@ setUpdate' p a rb = rb
 
 ------------------------------------------------------------------------------
 setDelete
-    :: (UnVoid id id' (id -> m (Maybe rep)) (id' -> m (Maybe rep))
+    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
     , UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool))
     => (id' -> m Bool)
     -> ResourceBuilder rep par m id diff
@@ -135,7 +134,7 @@ setDelete
 setDelete = setDelete' Proxy
 
 setDelete'
-    :: (UnVoid id id' (id -> m (Maybe rep)) (id' -> m (Maybe rep))
+    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
     , UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool))
     => Proxy id id'
     -> (id' -> m Bool)
