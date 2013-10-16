@@ -9,6 +9,9 @@ module Snap.Snaplet.Rest.Diff.Internal
 ------------------------------------------------------------------------------
 import Data.Void (Void)
 
+------------------------------------------------------------------------------
+import Snap.Snaplet.Rest.Proxy (Proxy)
+
 
 ------------------------------------------------------------------------------
 -- | A value of type 'diff' represents a partial form of a value of type
@@ -21,7 +24,7 @@ class Diff res diff where
 
     -- | Internal method which disables PATCH for the three instances below.
     -- All other instances will keep PATCH enabled.
-    patchDisabled :: Proxy res diff -> Bool
+    patchDisabled :: Proxy (res, diff) -> Bool
     patchDisabled _ = False
 
 -- This instance allows 'Void' to be used as the diff type, indicating no
@@ -47,8 +50,4 @@ instance Diff res res where
 instance Diff Void Void where
     toDiff _ = error "Cannot produce a void diff"
     patchDisabled _ = True
-
-
-------------------------------------------------------------------------------
-data Proxy r d = Proxy
 

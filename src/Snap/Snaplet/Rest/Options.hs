@@ -19,7 +19,9 @@ import Data.Maybe
 import Snap.Core
 
 ------------------------------------------------------------------------------
+import Snap.Snaplet.Rest.Diff.Internal     (Diff, patchDisabled)
 import Snap.Snaplet.Rest.Resource.Internal
+import Snap.Snaplet.Rest.Proxy             (Proxy)
 
 
 ------------------------------------------------------------------------------
@@ -49,32 +51,33 @@ optionsFor res = ResourceOptions
 
 
 ------------------------------------------------------------------------------
-setAllow :: MonadSnap m => ResourceOptions -> m ()
-setAllow opt = modifyResponse . setHeader "Allow" . BS.intercalate "," =<<
-    ifTop (return $ collectionAllow opt) <|> (return $ resourceAllow opt)
+setAllow
+    :: (MonadSnap m, Diff par diff)
+    => Proxy (par, diff) -> ResourceOptions -> m ()
+setAllow p opt = modifyResponse . setHeader "Allow" . BS.intercalate "," =<<
+    ifTop (return $ collectionAllow opt) <|> (return $ resourceAllow p opt)
 
 
 ------------------------------------------------------------------------------
 collectionAllow :: ResourceOptions -> [ByteString]
 collectionAllow opt = []
-    & addMethod (const True) "OPTIONS"
-    & addMethod hasStore "POST"
-  where addMethod = add opt id
+    & addMethod True "OPTIONS"
+    & addMethod (hasStore opt) "POST"
 
 
 ------------------------------------------------------------------------------
-resourceAllow :: ResourceOptions -> [ByteString]
-resourceAllow opt = []
-    & addMethod hasFetch "HEAD"
-    & addMethod (const True) "OPTIONS"
-    & addMethod hasUpdate "PATCH"
-    & addMethod hasDelete "DELETE"
-    & addMethod hasPut "PUT"
-    & addMethod hasFetch "GET"
-  where addMethod = add opt id
+resourceAllow
+    :: Diff par diff => Proxy (par, diff) -> ResourceOptions -> [ByteString]
+resourceAllow p opt = []
+    & addMethod (hasFetch opt) "HEAD"
+    & addMethod True "OPTIONS"
+    & addMethod (hasUpdate opt && not (patchDisabled p)) "PATCH"
+    & addMethod (hasDelete opt) "DELETE"
+    & addMethod (hasPut opt) "PUT"
+    & addMethod (hasFetch opt) "GET"
 
 
 ------------------------------------------------------------------------------
-add :: o -> (a -> b) -> (o -> Bool) -> a -> [b] -> [b]
-add opt addf optf verb = if optf opt then (addf verb :) else id
+addMethod :: Bool -> ByteString -> [ByteString] -> [ByteString]
+addMethod cond verb = if cond then (verb :) else id
 
