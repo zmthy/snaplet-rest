@@ -3,11 +3,10 @@
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Rest.Diff.Internal
     ( Diff (..)
-    , Proxy (..)
     ) where
 
 ------------------------------------------------------------------------------
-import Data.Void (Void)
+import Data.Void (Void, absurd)
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Rest.Proxy (Proxy)
@@ -30,13 +29,15 @@ class Diff res diff where
 -- This instance allows 'Void' to be used as the diff type, indicating no
 -- update method is available.  This disables PUT and PATCH.
 instance Diff res Void where
+    -- This use of error is reasonable, because the library will never call
+    -- this method if there is no diff type.
     toDiff _ = error "Cannot produce a void diff"
     patchDisabled _ = True
 
 -- This instance allows 'Void' to be used as the resource type, indicating no
 -- store method is available.  This disables PUT (and POST), but not PATCH.
 instance Diff Void res where
-    toDiff _ = error "Cannot produce the diff of void"
+    toDiff = absurd
 
 -- This instance allows a resource to be its own diff type, indicating no
 -- partial update method is available.  This disables PATCH, but not PUT.
@@ -48,6 +49,6 @@ instance Diff res res where
 -- previous instances, which indicates neither store or update is available.
 -- This disables POST, PUT, and PATCH.
 instance Diff Void Void where
-    toDiff _ = error "Cannot produce a void diff"
+    toDiff = absurd
     patchDisabled _ = True
 
