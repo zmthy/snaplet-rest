@@ -2,6 +2,7 @@
 module Snap.Snaplet.Rest.Failure
     ( headerFailure
     , pathFailure
+    , queryFailure
     , lookupFailure
     , methodFailure
     , acceptFailure
@@ -30,6 +31,12 @@ headerFailure = failure 400 . onHeaderFailure
 -- | Serves a 400 error and runs the handler specified in the configuration.
 pathFailure :: MonadSnap m => ResourceConfig m -> m a
 pathFailure = failure 400 . onPathFailure
+
+
+------------------------------------------------------------------------------
+-- | Serves a 400 error and runs the handler specified in the configuration.
+queryFailure :: MonadSnap m => ResourceConfig m -> m a
+queryFailure = failure 400 . onQueryFailure
 
 
 ------------------------------------------------------------------------------

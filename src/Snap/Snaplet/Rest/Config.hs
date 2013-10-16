@@ -3,6 +3,7 @@ module Snap.Snaplet.Rest.Config
     (
     -- * Configuration
       ResourceConfig (..)
+    , FetchLimit (..)
     , defaultConfig
 
     -- * Snaplet type class
@@ -30,14 +31,21 @@ import Snap.Snaplet
 -- | Configuration data.
 data ResourceConfig m = ResourceConfig
     {
+    -- | The maximum number of members to retrieve from a collection in
+    -- a single request.
+      fetchLimit :: FetchLimit
+
     -- | Maximum size of request bodies allowed when receiving resources.
-      maxRequestBodySize :: Int64
+    , maxRequestBodySize :: Int64
 
     -- | Action to run if the request header parsing fails.
     , onHeaderFailure :: m ()
 
     -- | Action to run if the resource path parsing fails.
     , onPathFailure :: m ()
+
+    -- | Action to run if the URL query string parsing fails.
+    , onQueryFailure :: m ()
 
     -- | Action to run if the requested resource cannot be found.
     , onLookupFailure :: m ()
@@ -58,17 +66,28 @@ data ResourceConfig m = ResourceConfig
 
 
 ------------------------------------------------------------------------------
--- | The default configuration settings.
+-- | Allows for fetching either a limited or unlimted amount.
+data FetchLimit
+    = Unlimited
+    | LimitTo Int
+
+
+------------------------------------------------------------------------------
+-- | The default configuration settings.  Requires a value for the maximum
+-- size of a request body.
 --
--- > defaultConfig = ResourceConfig
--- >     { maxRequestBodySize = 8192
+-- > defaultConfig mrbs = ResourceConfig
+-- >     { fetchLimit = Unlimited
+-- >     , maxRequestBodySize = mrbs
 -- >     , on*Failure = write "reason"
 -- >     }
-defaultConfig :: MonadSnap m => ResourceConfig m
-defaultConfig = ResourceConfig
-    { maxRequestBodySize    = 8192
+defaultConfig :: MonadSnap m => Int64 -> ResourceConfig m
+defaultConfig mrbs = ResourceConfig
+    { fetchLimit            = Unlimited
+    , maxRequestBodySize    = mrbs
     , onHeaderFailure       = write "Failed to parse request headers\n"
     , onPathFailure         = write "Failed to parse resource path\n"
+    , onQueryFailure        = write "Failed to parse query string\n"
     , onLookupFailure       = write "Failed to find resource\n"
     , onMethodFailure       = write "Method not allowed\n"
     , onAcceptFailure       = write "No required media types are supported\n"
@@ -105,9 +124,10 @@ resourceInit = makeSnaplet snapletName snapletDescription Nothing . return
 
 ------------------------------------------------------------------------------
 -- | Initialize the resource snaplet with the default configuration.
-resourceInitDefault :: SnapletInit b (Resources b)
-resourceInitDefault = makeSnaplet snapletName snapletDescription Nothing $
-    return defaultConfig
+resourceInitDefault :: Int64 -> SnapletInit b (Resources b)
+resourceInitDefault mrbs =
+    makeSnaplet snapletName snapletDescription Nothing $
+        return $ defaultConfig mrbs
 
 
 ------------------------------------------------------------------------------

@@ -63,6 +63,7 @@ collectionAllow :: ResourceOptions -> [ByteString]
 collectionAllow opt = []
     & addMethod True "OPTIONS"
     & addMethod (hasStore opt) "POST"
+    & addMethod (hasFetch opt) "GET"
 
 
 ------------------------------------------------------------------------------
