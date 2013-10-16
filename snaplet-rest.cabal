@@ -37,6 +37,7 @@ library
   other-modules:
     Snap.Snaplet.Rest.Diff.Internal
     Snap.Snaplet.Rest.Failure
+    Snap.Snaplet.Rest.FromRequest.Internal
     Snap.Snaplet.Rest.Options
     Snap.Snaplet.Rest.Proxy
     Snap.Snaplet.Rest.Resource.Internal

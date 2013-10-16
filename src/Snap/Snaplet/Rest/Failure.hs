@@ -15,9 +15,9 @@ import Snap.Core
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Rest.Config
-import Snap.Snaplet.Rest.Diff     (Diff)
+import Snap.Snaplet.Rest.Diff    (Diff)
 import Snap.Snaplet.Rest.Options
-import Snap.Snaplet.Rest.Proxy    (Proxy (..))
+import Snap.Snaplet.Rest.Proxy   (Proxy (..))
 import Snap.Snaplet.Rest.Resource
 
 
@@ -55,8 +55,8 @@ methodFailure = methodFailure' Proxy
 
 methodFailure'
     :: (MonadSnap m, Diff par diff)
-    => Proxy (par, diff) -> Resource rep par m id diff -> ResourceConfig m
-    -> m a
+    => Proxy (par, diff) -> Resource rep par m id diff
+    -> ResourceConfig m -> m a
 methodFailure' p res cfg = do
     setAllow p (optionsFor res)
     failure 405 $ onMethodFailure cfg

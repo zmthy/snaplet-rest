@@ -52,6 +52,9 @@ class FromMedia par m where
 instance FromMedia Void m where
     parsers = []
 
+instance FromMedia [Void] m where
+    parsers = []
+
 
 ------------------------------------------------------------------------------
 -- | Instances of this type class can be represented as various media types.
@@ -64,6 +67,9 @@ class ToMedia rep m where
     representations :: [(MediaType, rep -> m ByteString)]
 
 instance ToMedia Void m where
+    representations = []
+
+instance ToMedia [Void] m where
     representations = []
 
 

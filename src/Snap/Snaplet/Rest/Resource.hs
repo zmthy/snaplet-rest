@@ -11,6 +11,7 @@ module Snap.Snaplet.Rest.Resource
     , setStore
     , setUpdate
     , setDelete
+    , setFromParams
     , setPutAction
     ) where
 
