@@ -57,8 +57,8 @@ setAllow
     :: (MonadSnap m, Diff par diff)
     => Proxy (par, diff) -> ResourceOptions -> m ()
 setAllow p opt =
-    ifTop (return $ collectionAllow opt)
-        <|> (return $ resourceAllow p opt) >>=
+    ifTop (return (collectionAllow opt))
+        <|> return (resourceAllow p opt) >>=
     modifyResponse . setHeader "Allow" . BS.intercalate ","
 
 
