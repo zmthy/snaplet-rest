@@ -19,9 +19,7 @@ import Data.Maybe
 import Snap.Core
 
 ------------------------------------------------------------------------------
-import Snap.Snaplet.Rest.Diff.Internal     (Diff, patchEnabled)
 import Snap.Snaplet.Rest.Resource.Internal
-import Snap.Snaplet.Rest.Proxy             (Proxy)
 
 
 ------------------------------------------------------------------------------
@@ -30,6 +28,7 @@ data ResourceOptions = ResourceOptions
     { hasFetch      :: Bool
     , hasStore      :: Bool
     , hasUpdate     :: Bool
+    , hasDiff       :: Bool
     , hasDelete     :: Bool
     , hasFromParams :: Bool
     , hasPut        :: Bool
@@ -38,27 +37,26 @@ data ResourceOptions = ResourceOptions
 
 ------------------------------------------------------------------------------
 -- | Build options for a single resource.
-optionsFor :: Resource rep par m id diff -> ResourceOptions
+optionsFor :: Resource res m id diff -> ResourceOptions
 optionsFor res = ResourceOptions
     { hasFetch      = isJust $ fetch res
     , hasStore      = isJust $ store res
     , hasUpdate     = isJust $ update res
+    , hasDiff       = isJust $ toDiff res
     , hasDelete     = isJust $ delete res
     , hasFromParams = isJust $ fromParams res
     , hasPut        = case putAction res of
-        TryUpdate  -> isJust (store res) && isJust (update res)
-        JustStore  -> isJust $ store res
-        JustUpdate -> isJust $ update res
+        Nothing     -> isJust (store res) && isJust (update res)
+        Just Store  -> isJust $ store res
+        Just Update -> isJust $ update res
     }
 
 
 ------------------------------------------------------------------------------
-setAllow
-    :: (MonadSnap m, Diff par diff)
-    => Proxy (par, diff) -> ResourceOptions -> m ()
-setAllow p opt =
+setAllow :: MonadSnap m => ResourceOptions -> m ()
+setAllow opt =
     ifTop (return (collectionAllow opt))
-        <|> return (resourceAllow p opt) >>=
+        <|> return (resourceAllow opt) >>=
     modifyResponse . setHeader "Allow" . BS.intercalate ","
 
 
@@ -76,12 +74,11 @@ collectionAllow opt = []
 
 
 ------------------------------------------------------------------------------
-resourceAllow
-    :: Diff par diff => Proxy (par, diff) -> ResourceOptions -> [ByteString]
-resourceAllow p opt = []
+resourceAllow :: ResourceOptions -> [ByteString]
+resourceAllow opt = []
     & addMethod (hasFetch opt) "HEAD"
     & addMethod True "OPTIONS"
-    & addMethod (hasUpdate opt && patchEnabled p) "PATCH"
+    & addMethod (hasUpdate opt && hasDiff opt) "PATCH"
     & addMethod (hasDelete opt) "DELETE"
     & addMethod (hasPut opt) "PUT"
     & addMethod (hasFetch opt) "GET"

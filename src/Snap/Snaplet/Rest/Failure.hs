@@ -15,9 +15,7 @@ import Snap.Core
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Rest.Config
-import Snap.Snaplet.Rest.Diff    (Diff)
 import Snap.Snaplet.Rest.Options
-import Snap.Snaplet.Rest.Proxy   (Proxy (..))
 import Snap.Snaplet.Rest.Resource
 
 
@@ -49,16 +47,9 @@ lookupFailure = failure 404 . onLookupFailure
 -- | Serves a 405 error and runs the handler specified in the configuration,
 -- specifying which methods are allowed in the Allow header.
 methodFailure
-    :: (MonadSnap m, Diff par diff)
-    => Resource rep par m id diff -> ResourceConfig m -> m a
-methodFailure = methodFailure' Proxy
-
-methodFailure'
-    :: (MonadSnap m, Diff par diff)
-    => Proxy (par, diff) -> Resource rep par m id diff
-    -> ResourceConfig m -> m a
-methodFailure' p res cfg = do
-    setAllow p (optionsFor res)
+    :: MonadSnap m => Resource res m id diff -> ResourceConfig m -> m a
+methodFailure res cfg = do
+    setAllow (optionsFor res)
     failure 405 $ onMethodFailure cfg
 
 

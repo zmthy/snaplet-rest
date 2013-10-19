@@ -17,7 +17,6 @@ import Control.Applicative
 import Control.Monad
 import Data.ByteString      (ByteString)
 import Data.CaseInsensitive (CI, mk)
-import Data.Void            (Void)
 import Snap.Core            (Params)
 
 ------------------------------------------------------------------------------
@@ -41,13 +40,6 @@ class FromRequest id where
     -- implementation of 'fromParams'.
     defaultFromParams :: Maybe (Params -> Maybe id)
     defaultFromParams = Nothing
-
--- This instance is useful for a resource where POST is the only available
--- method with a side-effect.  Indicates that the resource cannot be
--- identified or searched.
-instance FromRequest Void where
-    fromPath _ = Nothing
-    pathEnabled _ = False
 
 -- This instance is useful for a singleton resource.  Indicates that the
 -- resource can only be accessed at its root, and cannot be searched.

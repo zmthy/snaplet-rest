@@ -24,27 +24,29 @@ library
     OverloadedStrings
   other-extensions:
     FlexibleInstances
+    IncoherentInstances
     OverlappingInstances
+    Rank2Types
+    TupleSections
 
   exposed-modules:
     Snap.Snaplet.Rest
     Snap.Snaplet.Rest.Config
-    Snap.Snaplet.Rest.Diff
-    Snap.Snaplet.Rest.Media
     Snap.Snaplet.Rest.FromRequest
     Snap.Snaplet.Rest.Resource
-    Snap.Snaplet.Rest.Resource.Builder
   other-modules:
-    Snap.Snaplet.Rest.Diff.Internal
     Snap.Snaplet.Rest.Failure
     Snap.Snaplet.Rest.FromRequest.Internal
+    Snap.Snaplet.Rest.Media
     Snap.Snaplet.Rest.Options
     Snap.Snaplet.Rest.Proxy
     Snap.Snaplet.Rest.Resource.Internal
+    Snap.Snaplet.Rest.Resource.Media
 
   build-depends:
     aeson            >= 0.6.2  && < 0.7,
     base             >= 4.6.0  && < 4.7,
+    blaze-builder    >= 0.3.1  && < 0.4,
     bytestring       >= 0.10.0 && < 0.11,
     case-insensitive >= 1.0.0  && < 1.1,
     http-media       >= 0.1.0  && < 0.2,
@@ -55,7 +57,7 @@ library
     snap-core        >= 0.9.4  && < 0.10,
     text             >= 0.11.3 && < 0.12,
     utf8-string      >= 0.3.7  && < 0.4,
-    void             >= 0.6.1  && < 0.7
+    xmlhtml          >= 0.2.3  && < 0.3
 
 source-repository head
   type:     git

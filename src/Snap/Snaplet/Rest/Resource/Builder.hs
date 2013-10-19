@@ -29,6 +29,7 @@ import qualified Snap.Snaplet.Rest.Resource.Internal as Resource
 import Snap.Snaplet.Rest.FromRequest.Internal
 import Snap.Snaplet.Rest.Resource.Internal
     (Resource (Resource), PutAction (..))
+import Snap.Snaplet.Rest.Resource.Media
 import Snap.Snaplet.Rest.Proxy
 
 
@@ -38,6 +39,7 @@ data ResourceBuilder rep par m id diff = ResourceBuilder
     , store      :: Maybe (par -> m ())
     , update     :: Maybe (id -> diff -> m Bool)
     , delete     :: Maybe (id -> m Bool)
+    , media      :: [MediaEntry m rep par diff]
     , fromParams :: Maybe (Params -> Maybe id)
     , putAction  :: Maybe PutAction
     }
@@ -46,11 +48,14 @@ data ResourceBuilder rep par m id diff = ResourceBuilder
 ------------------------------------------------------------------------------
 buildResource
     :: (Functor m, FromRequest id)
-    => (ResourceBuilder Void Void m Void Void
+    => [Media m rep par diff int]
+    -> (ResourceBuilder Void Void m Void Void
         -> ResourceBuilder rep par m id diff)
     -> Resource rep par m id diff
-buildResource f = Resource
-    { Resource.fetch      = fetch rb
+buildResource media f = Resource
+    { Resource.representations = representations
+    , Resource.parsers         = parsers
+    , Resource.fetch      = fetch rb
     , Resource.store      = store rb
     , Resource.update     = update rb
     , Resource.delete     = delete rb
@@ -58,21 +63,23 @@ buildResource f = Resource
     , Resource.putAction  = fromMaybe putDefault $ putAction rb
     }
   where
-    rb = f $ ResourceBuilder Nothing Nothing Nothing Nothing Nothing Nothing
+    rb = f $ ResourceBuilder Nothing Nothing Nothing Nothing [] Nothing Nothing
     hasStore  = isJust $ store rb
     hasUpdate = isJust $ update rb
     putDefault
         | hasStore && not hasUpdate = JustStore
         | hasUpdate && not hasStore = JustUpdate
         | otherwise                 = TryUpdate
+    representations = undefined
+    parsers = undefined
 
 
 ------------------------------------------------------------------------------
 class UnVoid a b x y where
-    voidCast :: Proxy (a, b) -> Maybe x -> Maybe y
+    voidCast :: Alternative f => Proxy (a, b) -> f x -> f y
 
 instance UnVoid Void b x y where
-    voidCast _ _ = Nothing
+    voidCast _ _ = empty
 
 instance UnVoid a a x x where
     voidCast _ = id
@@ -82,7 +89,8 @@ instance UnVoid a a x x where
 setFetch
     :: (UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
     , UnVoid id id' (id -> m Bool) (id' -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id'))
+    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id')
+    , UnVoid rep rep (MediaEntry m rep par diff) (MediaEntry m rep par diff))
     => (id' -> m [rep])
     -> ResourceBuilder Void par m id diff
     -> ResourceBuilder rep par m id' diff
@@ -91,7 +99,8 @@ setFetch = setFetch' Proxy
 setFetch'
     :: (UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
     , UnVoid id id' (id -> m Bool) (id' -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id'))
+    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id')
+    , UnVoid id id' (MediaEntry m rep par diff) (MediaEntry m rep par diff))
     => Proxy (id, id')
     -> (id' -> m [rep])
     -> ResourceBuilder Void par m id diff
@@ -100,6 +109,7 @@ setFetch' p a rb = rb
     { fetch      = Just a
     , update     = voidCast p $ update rb
     , delete     = voidCast p $ delete rb
+    , media      = voidCast p $ media rb
     , fromParams = voidCast p $ fromParams rb
     }
 
