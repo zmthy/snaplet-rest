@@ -36,7 +36,7 @@ serve
     :: MonadSnap m
     => [(MediaType, a -> m ByteString)] -> ResourceConfig m -> a -> m ()
 serve composers cfg rep =
-        accepts (map (fmap $ writeDone <=< ($ rep)) $ composers)
+        accepts (map (fmap $ writeDone <=< ($ rep)) composers)
     <|> acceptFailure cfg
   where
     writeDone bs = do

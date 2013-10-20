@@ -1,5 +1,4 @@
-{-# LANGUAGE ExistentialQuantification, FlexibleInstances,
-    FunctionalDependencies, Rank2Types #-}
+{-# LANGUAGE ExistentialQuantification, FlexibleInstances, Rank2Types #-}
 
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Rest.Resource.Media
