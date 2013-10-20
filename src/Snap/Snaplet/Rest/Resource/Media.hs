@@ -47,6 +47,8 @@ import Text.XmlHtml       (Document)
 
 
 ------------------------------------------------------------------------------
+-- | A grouping of mediatypes and their associated renderers and parsers.  You
+-- can use the standard instances defined below, or define your own.
 data Media res m diff int = Media
     { _fromResource     :: Maybe (res -> m int)
     , _toResource       :: Maybe (int -> m (Maybe res))
@@ -75,6 +77,8 @@ instance Intermediate String where
 
 
 ------------------------------------------------------------------------------
+-- | Construct a new media grouping with the given response and request
+-- mediatypes.
 newMedia
     :: (Intermediate int, MonadSnap m) => [MediaType] -> [MediaType]
     -> Media res m diff int
@@ -82,6 +86,7 @@ newMedia = newIntermediateMedia defaultFrom defaultTo
 
 
 ------------------------------------------------------------------------------
+-- | Construct a new media grouping with response mediatypes only.
 newResponseMedia
     :: (int -> m ByteString) -> [MediaType] -> Media res m diff int
 newResponseMedia a b =
@@ -89,6 +94,7 @@ newResponseMedia a b =
 
 
 ------------------------------------------------------------------------------
+-- | Construct a new media grouping with request mediatypes only.
 newRequestMedia
     :: (ByteString -> m (Maybe int)) -> [MediaType]
     -> Media res m diff int
@@ -97,6 +103,8 @@ newRequestMedia a b =
 
 
 ------------------------------------------------------------------------------
+-- | Construct a new media grouping with an intermediate type between the
+-- resource and the rendered form.
 newIntermediateMedia
     :: (int -> m ByteString) -> (ByteString -> m (Maybe int))
     -> [MediaType] -> [MediaType] -> Media res m diff int
@@ -110,38 +118,31 @@ notEmpty l f = guard (not $ null l) >> Just (l, f)
 
 
 ------------------------------------------------------------------------------
+-- | A 'Setter' for defining properties of a media grouping.
 type MediaSetter res m diff int f a = Setter
     (Media res m diff int) (Media res m diff int) (f a) a
 
 
 ------------------------------------------------------------------------------
+-- | Set the resource renderer.
 fromResource :: MediaSetter res m diff int Maybe (res -> m int)
 fromResource f m = f (_fromResource m) <&> \g -> m { _fromResource = Just g }
 
 
 ------------------------------------------------------------------------------
+-- | Set the resource parser.
 toResource :: MediaSetter res m diff int Maybe (int -> m (Maybe res))
 toResource f m = f (_toResource m) <&> \g -> m { _toResource = Just g }
 
 
 ------------------------------------------------------------------------------
+-- | Set the diff parser.
 toDiff :: MediaSetter res m diff int Maybe (int -> m (Maybe diff))
 toDiff f m = f (_toDiff m) <&> \g -> m { _toDiff = Just g }
 
 
 ------------------------------------------------------------------------------
-fromResourceList :: MediaSetter res m diff int Maybe ([res] -> m int)
-fromResourceList f m =
-    f (_fromResourceList m) <&> \g -> m { _fromResourceList = Just g }
-
-
-------------------------------------------------------------------------------
-toResourceList :: MediaSetter res m diff int Maybe (int -> m (Maybe [res]))
-toResourceList f m =
-    f (_toResourceList m) <&> \g -> m { _toResourceList = Just g }
-
-
-------------------------------------------------------------------------------
+-- | Set the resource and diff parser at the same time.
 toEither :: MediaSetter res m res int Both (int -> m (Maybe res))
 toEither f m = f (_toResource m, _toDiff m) <&> \g -> m
     { _toResource = Just g
@@ -149,6 +150,20 @@ toEither f m = f (_toResource m, _toDiff m) <&> \g -> m
     }
 
 type Both a = (Maybe a, Maybe a)
+
+
+------------------------------------------------------------------------------
+-- | Set the resource list renderer.
+fromResourceList :: MediaSetter res m diff int Maybe ([res] -> m int)
+fromResourceList f m =
+    f (_fromResourceList m) <&> \g -> m { _fromResourceList = Just g }
+
+
+------------------------------------------------------------------------------
+-- | Set the resource list parser.
+toResourceList :: MediaSetter res m diff int Maybe (int -> m (Maybe [res]))
+toResourceList f m =
+    f (_toResourceList m) <&> \g -> m { _toResourceList = Just g }
 
 
 ------------------------------------------------------------------------------

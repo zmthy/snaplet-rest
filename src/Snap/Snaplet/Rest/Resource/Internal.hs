@@ -21,6 +21,9 @@ import Snap.Snaplet.Rest.Proxy                (Proxy (..))
 
 
 ------------------------------------------------------------------------------
+-- | A resource descriptor for the type 'res'.  The resource runs in the monad
+-- 'm', identifies resources with values of the type 'id', and describes
+-- changes with value of the type 'diff'.
 data Resource res m id diff = Resource
     { renderers     :: [(MediaType, res -> m ByteString)]
     , parsers       :: [(MediaType, ByteString -> m (Maybe res))]
@@ -53,6 +56,8 @@ instance Diff a b where
 
 
 ------------------------------------------------------------------------------
+-- | The empty resource descriptor, useful as a starting point for building
+-- resources.
 resource :: Resource res m id diff
 resource = Resource [] [] [] [] []
     Nothing Nothing Nothing Nothing Nothing Nothing Nothing False

@@ -9,6 +9,7 @@ module Snap.Snaplet.Rest.Resource.Builder
     , setDelete
     , setToDiff
     , setFromParams
+    , setPutAction
     ) where
 
 ------------------------------------------------------------------------------
@@ -29,6 +30,7 @@ type ResourceBuilder res m id diff
 
 
 ------------------------------------------------------------------------------
+-- | Add a media representation for rendering and parsing.
 addMedia :: Monad m => Media res m diff int -> ResourceBuilder res m id diff
 addMedia media res = res
     { renderers     = renderers res ++ renderers'
@@ -61,31 +63,46 @@ addMedia media res = res
 
 
 ------------------------------------------------------------------------------
+-- | Set the create method for the resource.
 setCreate :: (res -> m ()) -> ResourceBuilder res m id diff
 setCreate f res = res { create = Just f }
 
 
 ------------------------------------------------------------------------------
+-- | Set the read method for the resource.
 setRead :: (id -> m [res]) -> ResourceBuilder res m id diff
 setRead f res = res { retrieve = Just f }
 
 
 ------------------------------------------------------------------------------
+-- | Set the update method for the resource.  The method must return
+-- a boolean, indicating whether anything was updated.
 setUpdate :: (id -> diff -> m Bool) -> ResourceBuilder res m id diff
 setUpdate f res = res { update = Just f }
 
 
 ------------------------------------------------------------------------------
+-- | Set the delete method for the resource.  The method must return a
+-- boolean, indicating whether anything was deleted.
 setDelete :: (id -> m Bool) -> ResourceBuilder res m id diff
 setDelete f res = res { delete = Just f }
 
 
 ------------------------------------------------------------------------------
+-- | Sets the conversion function from resource to diff value.
 setToDiff :: (res -> diff) -> ResourceBuilder res m id diff
 setToDiff f res = res { toDiff = Just f }
 
 
 ------------------------------------------------------------------------------
+-- | Sets the URL query string parser.
 setFromParams :: (Params -> Maybe id) -> ResourceBuilder res m id diff
 setFromParams f res = res { fromParams = Just f }
+
+
+------------------------------------------------------------------------------
+-- | Sets a specific action to take when a PUT method is received.  If not
+-- set, this defaults to trying to update and then creating if that fails.
+setPutAction :: PutAction -> ResourceBuilder res m id diff
+setPutAction a res = res { putAction = Just a }
 

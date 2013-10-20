@@ -15,6 +15,8 @@ module Snap.Snaplet.Rest
     , setDelete
     , setToDiff
     , setFromParams
+    , setPutAction
+    , PutAction (..)
 
     -- * Request parsing
     , FromRequest (..)

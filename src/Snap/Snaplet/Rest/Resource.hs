@@ -11,6 +11,8 @@ module Snap.Snaplet.Rest.Resource
     , setDelete
     , setToDiff
     , setFromParams
+    , setPutAction
+    , PutAction (..)
 
     -- * Media
     , Media
