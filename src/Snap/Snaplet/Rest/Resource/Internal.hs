@@ -13,7 +13,7 @@ import Control.Applicative
 import Data.ByteString     (ByteString)
 import Data.Maybe
 import Network.HTTP.Media  (MediaType)
-import Snap.Core           (Params)
+import Snap.Core           (Method, Params)
 
 ------------------------------------------------------------------------------
 import Snap.Snaplet.Rest.FromRequest.Internal (FromRequest (..))
@@ -22,10 +22,12 @@ import Snap.Snaplet.Rest.Proxy                (Proxy (..))
 
 ------------------------------------------------------------------------------
 data Resource res m id diff = Resource
-    { renderers     :: [(MediaType, res -> m ByteString)]
+    { renderers
+        :: [(MediaType, [Method] -> (ByteString, res) -> m ByteString)]
     , parsers       :: [(MediaType, ByteString -> m (Maybe res))]
     , diffParsers   :: [(MediaType, ByteString -> m (Maybe diff))]
-    , listRenderers :: [(MediaType, [res] -> m ByteString)]
+    , listRenderers
+        :: [(MediaType, [Method] -> [(ByteString, res)] -> m ByteString)]
     , listParsers   :: [(MediaType, ByteString -> m (Maybe [res]))]
     , create        :: Maybe (res -> m ())
     , retrieve      :: Maybe (id -> m [res])

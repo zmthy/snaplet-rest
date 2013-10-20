@@ -12,6 +12,7 @@ module Snap.Snaplet.Rest.Resource.Builder
     ) where
 
 ------------------------------------------------------------------------------
+import Control.Applicative
 import Control.Monad
 import Data.Maybe
 
@@ -41,7 +42,9 @@ addMedia media res = res
     renderers' = fromMaybe [] $ do
         fromResource' <- _fromResource media
         (mts, render) <- responseMedia media
-        return $ map (, fromResource' >=> render) mts
+        inject        <- _injectLink media <|> Just (const $ const id)
+        return $ map (, \ms (p, r) ->
+            fromResource' r >>= render . inject p ms) mts
     parsers' = fromMaybe [] $ do
         toResource' <- _toResource media
         (mts, parse) <- requestMedia media
@@ -53,7 +56,8 @@ addMedia media res = res
     listRenderers' = fromMaybe [] $ do
         fromResourceList' <- _fromResourceList media
         (mts, render) <- responseMedia media
-        return $ map (, fromResourceList' >=> render) mts
+        return $ map (, \_ lp ->
+            fromResourceList' (map snd lp) >>= render) mts
     listParsers' = fromMaybe [] $ do
         toResourceList' <- _toResourceList media
         (mts, parse) <- requestMedia media

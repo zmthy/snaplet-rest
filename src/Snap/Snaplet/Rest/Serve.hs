@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, TupleSections #-}
 
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Rest.Serve
@@ -12,7 +12,9 @@ import qualified Data.ByteString as BS
 ------------------------------------------------------------------------------
 import Control.Applicative
 import Control.Monad
+import Data.ByteString     (ByteString)
 import Data.Maybe
+import Data.Monoid
 import Snap.Core
 import Snap.Snaplet        (Handler)
 
@@ -100,8 +102,11 @@ retrieveResources
     :: MonadSnap m
     => Resource res m id diff -> ResourceConfig m -> (id -> m [res])
     -> m ()
-retrieveResources res cfg retrieve' = parseParams res cfg >>= maybe
-    (queryFailure cfg) (retrieve' >=> serve (listRenderers res) cfg . limit)
+retrieveResources res cfg retrieve' = do
+    p <- fullPath
+    parseParams res cfg >>= maybe
+        (queryFailure cfg) (retrieve' >=> serve (listRenderers res)
+            (collectionAllow $ optionsFor res) cfg . fmap (p,) . limit)
   where limit = maybe id take $ readLimit cfg
 
 
@@ -111,9 +116,12 @@ retrieveResource
     :: (MonadSnap m, FromRequest id)
     => Resource res m id diff -> ResourceConfig m -> (id -> m [res])
     -> m ()
-retrieveResource res cfg retrieve' = parsePath >>= maybe (pathFailure cfg)
-    (retrieve' >=> maybe (lookupFailure cfg)
-        (serve (renderers res) cfg) . listToMaybe)
+retrieveResource res cfg retrieve' = do
+    p <- fullPath
+    parsePath >>= maybe (pathFailure cfg)
+        (retrieve' >=> maybe (lookupFailure cfg)
+        (serve (renderers res) (resourceAllow $ optionsFor res) cfg) .
+            fmap (p,) . listToMaybe)
 
 
 ------------------------------------------------------------------------------
@@ -244,6 +252,13 @@ retrieveOptions parsePath' cfg res = do
         flip unless (isNothing <$> parsePath' >>= flip when (pathFailure cfg))
     setAllow $ optionsFor res
     modifyResponse $ setContentLength 0
+
+
+------------------------------------------------------------------------------
+fullPath :: MonadSnap m => m ByteString
+fullPath = do
+    req <- getRequest
+    return $ rqContextPath req <> rqPathInfo req
 
 
 ------------------------------------------------------------------------------

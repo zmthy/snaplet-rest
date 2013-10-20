@@ -6,15 +6,17 @@ module Snap.Snaplet.Rest.Options
     ( ResourceOptions
     , optionsFor
     , setAllow
+    , resourceAllow
+    , collectionAllow
     ) where
 
 ------------------------------------------------------------------------------
-import qualified Data.ByteString as BS
+import qualified Data.ByteString      as BS
+import qualified Data.ByteString.UTF8 as BS
 
 ------------------------------------------------------------------------------
 import Control.Applicative
 import Control.Lens.Combinators ((&))
-import Data.ByteString          (ByteString)
 import Data.Maybe
 import Snap.Core
 
@@ -61,36 +63,37 @@ setAllow :: MonadSnap m => ResourceOptions -> m ()
 setAllow opt =
     ifTop (return (collectionAllow opt))
         <|> return (resourceAllow opt) >>=
-    modifyResponse . setHeader "Allow" . BS.intercalate ","
+    modifyResponse . setHeader "Allow" . BS.intercalate "," .
+        map (BS.fromString . show)
 
 
 ------------------------------------------------------------------------------
-collectionAllow :: ResourceOptions -> [ByteString]
+collectionAllow :: ResourceOptions -> [Method]
 collectionAllow opt = []
-    & addMethod (hasRetrieve opt && readEnabled) "HEAD"
-    & addMethod True "OPTIONS"
-    & addMethod (hasUpdate opt && writeEnabled) "UPDATE"
-    & addMethod (hasDelete opt && writeEnabled) "DELETE"
-    & addMethod (hasCreate opt && hasDelete opt && writeEnabled) "PUT"
-    & addMethod (hasCreate opt) "POST"
-    & addMethod (hasRetrieve opt && readEnabled) "GET"
+    & addMethod (hasRetrieve opt && readEnabled) HEAD
+    & addMethod True OPTIONS
+    & addMethod (hasUpdate opt && writeEnabled) PATCH
+    & addMethod (hasDelete opt && writeEnabled) DELETE
+    & addMethod (hasCreate opt && hasDelete opt && writeEnabled) PUT
+    & addMethod (hasCreate opt) POST
+    & addMethod (hasRetrieve opt && readEnabled) GET
   where
     readEnabled = hasFromParams opt && hasListRenderers opt
     writeEnabled = hasFromParams opt && hasListParsers opt
 
 
 ------------------------------------------------------------------------------
-resourceAllow :: ResourceOptions -> [ByteString]
+resourceAllow :: ResourceOptions -> [Method]
 resourceAllow opt = []
-    & addMethod (hasRetrieve opt) "HEAD"
-    & addMethod True "OPTIONS"
-    & addMethod (hasUpdate opt && hasDiff opt) "PATCH"
-    & addMethod (hasDelete opt) "DELETE"
-    & addMethod (hasPut opt) "PUT"
-    & addMethod (hasRetrieve opt) "GET"
+    & addMethod (hasRetrieve opt) HEAD
+    & addMethod True OPTIONS
+    & addMethod (hasUpdate opt && hasDiff opt) PATCH
+    & addMethod (hasDelete opt) DELETE
+    & addMethod (hasPut opt) PUT
+    & addMethod (hasRetrieve opt) GET
 
 
 ------------------------------------------------------------------------------
-addMethod :: Bool -> ByteString -> [ByteString] -> [ByteString]
+addMethod :: Bool -> Method -> [Method] -> [Method]
 addMethod cond verb = if cond then (verb :) else id
 

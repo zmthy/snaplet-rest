@@ -19,6 +19,7 @@ module Snap.Snaplet.Rest.Resource.Media
     , toEither
     , fromResourceList
     , toResourceList
+    , injectLink
 
     -- * Common instances
     , json
@@ -34,10 +35,11 @@ module Snap.Snaplet.Rest.Resource.Media
 import qualified Blaze.ByteString.Builder as BB
 import qualified Data.ByteString.Lazy     as LBS
 import qualified Data.ByteString.UTF8     as BS
+import qualified Data.HashMap.Strict      as Map
 import qualified Text.XmlHtml             as Xml
 
 ------------------------------------------------------------------------------
-import Control.Lens
+import Control.Lens       hiding ((.=))
 import Control.Monad
 import Data.Aeson         hiding (json)
 import Data.ByteString    (ByteString)
@@ -53,9 +55,12 @@ data Media res m diff int = Media
     , _toDiff           :: Maybe (int -> m (Maybe diff))
     , _fromResourceList :: Maybe ([res] -> m int)
     , _toResourceList   :: Maybe (int -> m (Maybe [res]))
+    , _injectLink       :: Maybe (Path -> [Method] -> int -> int)
     , responseMedia     :: Maybe ([MediaType], int -> m ByteString)
     , requestMedia      :: Maybe ([MediaType], ByteString -> m (Maybe int))
     }
+
+type Path = ByteString
 
 
 ------------------------------------------------------------------------------
@@ -84,16 +89,16 @@ newMedia = newIntermediateMedia defaultFrom defaultTo
 ------------------------------------------------------------------------------
 newResponseMedia
     :: (int -> m ByteString) -> [MediaType] -> Media res m diff int
-newResponseMedia a b =
-    Media Nothing Nothing Nothing Nothing Nothing (notEmpty b a) Nothing
+newResponseMedia a b = Media
+    Nothing Nothing Nothing Nothing Nothing Nothing (notEmpty b a) Nothing
 
 
 ------------------------------------------------------------------------------
 newRequestMedia
     :: (ByteString -> m (Maybe int)) -> [MediaType]
     -> Media res m diff int
-newRequestMedia a b =
-    Media Nothing Nothing Nothing Nothing Nothing Nothing (notEmpty b a)
+newRequestMedia a b = Media
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing (notEmpty b a)
 
 
 ------------------------------------------------------------------------------
@@ -101,7 +106,8 @@ newIntermediateMedia
     :: (int -> m ByteString) -> (ByteString -> m (Maybe int))
     -> [MediaType] -> [MediaType] -> Media res m diff int
 newIntermediateMedia a b x y = Media
-    Nothing Nothing Nothing Nothing Nothing (notEmpty x a) (notEmpty y b)
+    Nothing Nothing Nothing Nothing Nothing Nothing
+    (notEmpty x a) (notEmpty y b)
 
 
 ------------------------------------------------------------------------------
@@ -152,11 +158,18 @@ type Both a = (Maybe a, Maybe a)
 
 
 ------------------------------------------------------------------------------
+injectLink
+    :: MediaSetter res m diff int Maybe (ByteString -> [Method] -> int -> int)
+injectLink f m = f (_injectLink m) <&> \g -> m { _injectLink = Just g }
+
+
+------------------------------------------------------------------------------
 -- | Outputs JSON in UTF-8 and parses JSON agnostic of character set.
 json :: Monad m => Media res m diff Value
 json = newIntermediateMedia
     (return . LBS.toStrict . encode) (return . decodeStrict)
     ["application/json; charset=utf-8"] ["application/json"]
+    & injectLink .~ jsonInject
 
 
 ------------------------------------------------------------------------------
@@ -171,6 +184,7 @@ jsonFromInstances = Media
     (Just (return . resultToMaybe . fromJSON))
     (Just (return . toJSON))
     (Just (return . resultToMaybe . fromJSON))
+    (Just jsonInject)
     (Just (["application/json; charset=utf-8"],
         return . LBS.toStrict . encode))
     (Just (["application/json"], return . decode . LBS.fromStrict))
@@ -180,6 +194,17 @@ jsonFromInstances = Media
 resultToMaybe :: Result a -> Maybe a
 resultToMaybe (Error _)   = Nothing
 resultToMaybe (Success a) = Just a
+
+
+------------------------------------------------------------------------------
+jsonInject :: ByteString -> [Method] -> Value -> Value
+jsonInject path' methods' val = case val of
+    Object o -> Object $ flip (Map.insert "link") o $ object
+        [ "href"    .= toJSON path'
+        , "methods" .= toJSON (map show methods')
+        ]
+    _        -> val
+
 
 ------------------------------------------------------------------------------
 -- | Outputs XML in UTF-8 and parses XML agnostic of character set.

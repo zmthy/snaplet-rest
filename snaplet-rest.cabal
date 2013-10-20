@@ -46,20 +46,21 @@ library
     Snap.Snaplet.Rest.Serve
 
   build-depends:
-    aeson            >= 0.6.2  && < 0.7,
-    base             >= 4.6.0  && < 4.7,
-    blaze-builder    >= 0.3.1  && < 0.4,
-    bytestring       >= 0.10.0 && < 0.11,
-    case-insensitive >= 1.0.0  && < 1.1,
-    http-media       >= 0.1.0  && < 0.2,
-    lens             >= 3.9.0  && < 3.10,
-    mtl              >= 2.1.2  && < 2.2,
-    snap             >= 0.13.0 && < 0.14,
-    snap-accept      >= 0.1.0  && < 0.2,
-    snap-core        >= 0.9.4  && < 0.10,
-    text             >= 0.11.3 && < 0.12,
-    utf8-string      >= 0.3.7  && < 0.4,
-    xmlhtml          >= 0.2.3  && < 0.3
+    aeson                >= 0.6.2  && < 0.7,
+    base                 >= 4.6.0  && < 4.7,
+    blaze-builder        >= 0.3.1  && < 0.4,
+    bytestring           >= 0.10.0 && < 0.11,
+    case-insensitive     >= 1.0.0  && < 1.1,
+    http-media           >= 0.1.0  && < 0.2,
+    lens                 >= 3.9.0  && < 3.10,
+    mtl                  >= 2.1.2  && < 2.2,
+    snap                 >= 0.13.0 && < 0.14,
+    snap-accept          >= 0.1.0  && < 0.2,
+    snap-core            >= 0.9.4  && < 0.10,
+    text                 >= 0.11.3 && < 0.12,
+    unordered-containers >= 0.2.3  && < 0.3,
+    utf8-string          >= 0.3.7  && < 0.4,
+    xmlhtml              >= 0.2.3  && < 0.3
 
 source-repository head
   type:     git

@@ -34,10 +34,11 @@ import Snap.Snaplet.Rest.Failure
 -- | Serve the given resource using the given configuration.
 serve
     :: MonadSnap m
-    => [(MediaType, a -> m ByteString)] -> ResourceConfig m -> a -> m ()
-serve composers cfg rep =
-        accepts (map (fmap $ writeDone <=< ($ rep)) $ composers)
-    <|> acceptFailure cfg
+    => [(MediaType, [Method] -> a -> m ByteString)]
+    -> [Method] -> ResourceConfig m -> a -> m ()
+serve composers ms cfg rep =
+    accepts (map (fmap $ writeDone <=< (\f -> f ms rep)) $ composers)
+        <|> acceptFailure cfg
   where
     writeDone bs = do
         modifyResponse $ setContentLength $ fromIntegral $ BS.length bs
