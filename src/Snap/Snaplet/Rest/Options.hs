@@ -25,13 +25,15 @@ import Snap.Snaplet.Rest.Resource.Internal
 ------------------------------------------------------------------------------
 -- | Options for a REST resource.
 data ResourceOptions = ResourceOptions
-    { hasRetrieve   :: Bool
-    , hasCreate     :: Bool
-    , hasUpdate     :: Bool
-    , hasDiff       :: Bool
-    , hasDelete     :: Bool
-    , hasFromParams :: Bool
-    , hasPut        :: Bool
+    { hasRetrieve      :: Bool
+    , hasCreate        :: Bool
+    , hasUpdate        :: Bool
+    , hasDiff          :: Bool
+    , hasDelete        :: Bool
+    , hasListRenderers :: Bool
+    , hasListParsers   :: Bool
+    , hasFromParams    :: Bool
+    , hasPut           :: Bool
     }
 
 
@@ -39,13 +41,15 @@ data ResourceOptions = ResourceOptions
 -- | Build options for a single resource.
 optionsFor :: Resource res m id diff -> ResourceOptions
 optionsFor res = ResourceOptions
-    { hasRetrieve   = isJust $ retrieve res
-    , hasCreate     = isJust $ create res
-    , hasUpdate     = isJust $ update res
-    , hasDiff       = isJust $ toDiff res
-    , hasDelete     = isJust $ delete res
-    , hasFromParams = isJust $ fromParams res
-    , hasPut        = case putAction res of
+    { hasRetrieve      = isJust $ retrieve res
+    , hasCreate        = isJust $ create res
+    , hasUpdate        = isJust $ update res
+    , hasDiff          = isJust $ toDiff res
+    , hasDelete        = isJust $ delete res
+    , hasListRenderers = not . null $ listRenderers res
+    , hasListParsers   = not . null $ listParsers res
+    , hasFromParams    = isJust $ fromParams res
+    , hasPut           = case putAction res of
         Nothing     -> isJust (create res) && isJust (update res)
         Just Create -> isJust $ create res
         Just Update -> isJust $ update res
@@ -63,14 +67,16 @@ setAllow opt =
 ------------------------------------------------------------------------------
 collectionAllow :: ResourceOptions -> [ByteString]
 collectionAllow opt = []
-    & addMethod (hasRetrieve opt && enabled) "HEAD"
+    & addMethod (hasRetrieve opt && readEnabled) "HEAD"
     & addMethod True "OPTIONS"
-    & addMethod (hasUpdate opt && enabled) "UPDATE"
-    & addMethod (hasDelete opt && enabled) "DELETE"
-    & addMethod (hasCreate opt && hasDelete opt && enabled) "PUT"
+    & addMethod (hasUpdate opt && writeEnabled) "UPDATE"
+    & addMethod (hasDelete opt && writeEnabled) "DELETE"
+    & addMethod (hasCreate opt && hasDelete opt && writeEnabled) "PUT"
     & addMethod (hasCreate opt) "POST"
-    & addMethod (hasRetrieve opt && enabled) "GET"
-  where enabled = hasFromParams opt
+    & addMethod (hasRetrieve opt && readEnabled) "GET"
+  where
+    readEnabled = hasFromParams opt && hasListRenderers opt
+    writeEnabled = hasFromParams opt && hasListParsers opt
 
 
 ------------------------------------------------------------------------------

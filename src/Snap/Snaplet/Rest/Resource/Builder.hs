@@ -22,10 +22,6 @@ import Snap.Core (Params)
 import Snap.Snaplet.Rest.Resource.Internal
 import Snap.Snaplet.Rest.Resource.Media    (Media (..))
 
-import Debug.Trace
-
-tracef :: Show b => (a -> b) -> a -> a
-tracef f x = traceShow (f x) x
 
 ------------------------------------------------------------------------------
 type ResourceBuilder res m id diff
@@ -35,9 +31,11 @@ type ResourceBuilder res m id diff
 ------------------------------------------------------------------------------
 addMedia :: Monad m => Media res m diff int -> ResourceBuilder res m id diff
 addMedia media res = res
-    { renderers   = renderers res ++ renderers'
-    , parsers     = parsers res ++ parsers'
-    , diffParsers = diffParsers res ++ diffParsers'
+    { renderers     = renderers res ++ renderers'
+    , parsers       = parsers res ++ parsers'
+    , diffParsers   = diffParsers res ++ diffParsers'
+    , listRenderers = listRenderers res ++ listRenderers'
+    , listParsers   = listParsers res ++ listParsers'
     }
   where
     renderers' = fromMaybe [] $ do
@@ -51,7 +49,15 @@ addMedia media res = res
     diffParsers' = fromMaybe [] $ do
         toDiff' <- _toDiff media
         (mts, parse) <- requestMedia media
-        return $ map (, parse >=> maybe (return Nothing) toDiff' . tracef isJust) mts
+        return $ map (, parse >=> maybe (return Nothing) toDiff') mts
+    listRenderers' = fromMaybe [] $ do
+        fromResourceList' <- _fromResourceList media
+        (mts, render) <- responseMedia media
+        return $ map (, fromResourceList' >=> render) mts
+    listParsers' = fromMaybe [] $ do
+        toResourceList' <- _toResourceList media
+        (mts, parse) <- requestMedia media
+        return $ map (, parse >=> maybe (return Nothing) toResourceList') mts
 
 
 ------------------------------------------------------------------------------

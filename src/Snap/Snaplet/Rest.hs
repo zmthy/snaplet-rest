@@ -32,10 +32,12 @@ module Snap.Snaplet.Rest
     , toResource
     , toDiff
     , toEither
+    , fromResourceList
+    , toResourceList
 
     -- * Common media instances
     , json
-    , jsonInstances
+    , jsonFromInstances
     , xml
     , xhtml
     , html

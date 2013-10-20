@@ -17,10 +17,12 @@ module Snap.Snaplet.Rest.Resource.Media
     , toResource
     , toDiff
     , toEither
+    , fromResourceList
+    , toResourceList
 
     -- * Common instances
     , json
-    , jsonInstances
+    , jsonFromInstances
     , xml
     , xhtml
     , html
@@ -46,11 +48,13 @@ import Text.XmlHtml       (Document)
 
 ------------------------------------------------------------------------------
 data Media res m diff int = Media
-    { _fromResource    :: Maybe (res -> m int)
-    , _toResource      :: Maybe (int -> m (Maybe res))
-    , _toDiff          :: Maybe (int -> m (Maybe diff))
-    , responseMedia    :: Maybe ([MediaType], int -> m ByteString)
-    , requestMedia     :: Maybe ([MediaType], ByteString -> m (Maybe int))
+    { _fromResource     :: Maybe (res -> m int)
+    , _toResource       :: Maybe (int -> m (Maybe res))
+    , _toDiff           :: Maybe (int -> m (Maybe diff))
+    , _fromResourceList :: Maybe ([res] -> m int)
+    , _toResourceList   :: Maybe (int -> m (Maybe [res]))
+    , responseMedia     :: Maybe ([MediaType], int -> m ByteString)
+    , requestMedia      :: Maybe ([MediaType], ByteString -> m (Maybe int))
     }
 
 
@@ -80,22 +84,24 @@ newMedia = newIntermediateMedia defaultFrom defaultTo
 ------------------------------------------------------------------------------
 newResponseMedia
     :: (int -> m ByteString) -> [MediaType] -> Media res m diff int
-newResponseMedia a b = Media Nothing Nothing Nothing (notEmpty b a) Nothing
+newResponseMedia a b =
+    Media Nothing Nothing Nothing Nothing Nothing (notEmpty b a) Nothing
 
 
 ------------------------------------------------------------------------------
 newRequestMedia
     :: (ByteString -> m (Maybe int)) -> [MediaType]
     -> Media res m diff int
-newRequestMedia a b = Media Nothing Nothing Nothing Nothing (notEmpty b a)
+newRequestMedia a b =
+    Media Nothing Nothing Nothing Nothing Nothing Nothing (notEmpty b a)
 
 
 ------------------------------------------------------------------------------
 newIntermediateMedia
     :: (int -> m ByteString) -> (ByteString -> m (Maybe int))
     -> [MediaType] -> [MediaType] -> Media res m diff int
-newIntermediateMedia a b x y =
-    Media Nothing Nothing Nothing (notEmpty x a) (notEmpty y b)
+newIntermediateMedia a b x y = Media
+    Nothing Nothing Nothing Nothing Nothing (notEmpty x a) (notEmpty y b)
 
 
 ------------------------------------------------------------------------------
@@ -124,6 +130,18 @@ toDiff f m = f (_toDiff m) <&> \g -> m { _toDiff = Just g }
 
 
 ------------------------------------------------------------------------------
+fromResourceList :: MediaSetter res m diff int Maybe ([res] -> m int)
+fromResourceList f m =
+    f (_fromResourceList m) <&> \g -> m { _fromResourceList = Just g }
+
+
+------------------------------------------------------------------------------
+toResourceList :: MediaSetter res m diff int Maybe (int -> m (Maybe [res]))
+toResourceList f m =
+    f (_toResourceList m) <&> \g -> m { _toResourceList = Just g }
+
+
+------------------------------------------------------------------------------
 toEither :: MediaSetter res m res int Both (int -> m (Maybe res))
 toEither f m = f (_toResource m, _toDiff m) <&> \g -> m
     { _toResource = Just g
@@ -144,20 +162,24 @@ json = newIntermediateMedia
 ------------------------------------------------------------------------------
 -- | Outputs JSON in UTF-8 and parses JSON agnostic of character set.  Uses
 -- the type class instances to automatically set the media methods.
-jsonInstances
+jsonFromInstances
     :: (Monad m, ToJSON res, FromJSON res, FromJSON diff)
     => Media res m diff Value
-jsonInstances = Media
+jsonFromInstances = Media
     (Just (return . toJSON))
     (Just (return . resultToMaybe . fromJSON))
+    (Just (return . resultToMaybe . fromJSON))
+    (Just (return . toJSON))
     (Just (return . resultToMaybe . fromJSON))
     (Just (["application/json; charset=utf-8"],
         return . LBS.toStrict . encode))
     (Just (["application/json"], return . decode . LBS.fromStrict))
-  where
-    resultToMaybe (Error _)   = Nothing
-    resultToMaybe (Success a) = Just a
 
+
+------------------------------------------------------------------------------
+resultToMaybe :: Result a -> Maybe a
+resultToMaybe (Error _)   = Nothing
+resultToMaybe (Success a) = Just a
 
 ------------------------------------------------------------------------------
 -- | Outputs XML in UTF-8 and parses XML agnostic of character set.
