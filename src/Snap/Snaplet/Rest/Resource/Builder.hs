@@ -1,209 +1,85 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE TupleSections #-}
 
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Rest.Resource.Builder
-    (
-    -- * Builder
-      ResourceBuilder
-    , buildResource
-
-    -- * Setters
-    , setFetch
-    , setStore
+    ( addMedia
+    , setCreate
+    , setRead
     , setUpdate
     , setDelete
+    , setToDiff
     , setFromParams
-    , setPutAction
     ) where
 
 ------------------------------------------------------------------------------
-import Control.Applicative
+import Control.Monad
 import Data.Maybe
-import Data.Void           (Void)
-import Snap.Core           (Params)
 
 ------------------------------------------------------------------------------
-import qualified Snap.Snaplet.Rest.Resource.Internal as Resource
+import Snap.Core (Params)
 
 ------------------------------------------------------------------------------
-import Snap.Snaplet.Rest.FromRequest.Internal
 import Snap.Snaplet.Rest.Resource.Internal
-    (Resource (Resource), PutAction (..))
-import Snap.Snaplet.Rest.Resource.Media
-import Snap.Snaplet.Rest.Proxy
+import Snap.Snaplet.Rest.Resource.Media    (Media (..))
+
+import Debug.Trace
+
+tracef :: Show b => (a -> b) -> a -> a
+tracef f x = traceShow (f x) x
+
+------------------------------------------------------------------------------
+type ResourceBuilder res m id diff
+    = Resource res m id diff -> Resource res m id diff
 
 
 ------------------------------------------------------------------------------
-data ResourceBuilder rep par m id diff = ResourceBuilder
-    { fetch      :: Maybe (id -> m [rep])
-    , store      :: Maybe (par -> m ())
-    , update     :: Maybe (id -> diff -> m Bool)
-    , delete     :: Maybe (id -> m Bool)
-    , media      :: [MediaEntry m rep par diff]
-    , fromParams :: Maybe (Params -> Maybe id)
-    , putAction  :: Maybe PutAction
-    }
-
-
-------------------------------------------------------------------------------
-buildResource
-    :: (Functor m, FromRequest id)
-    => [Media m rep par diff int]
-    -> (ResourceBuilder Void Void m Void Void
-        -> ResourceBuilder rep par m id diff)
-    -> Resource rep par m id diff
-buildResource media f = Resource
-    { Resource.representations = representations
-    , Resource.parsers         = parsers
-    , Resource.fetch      = fetch rb
-    , Resource.store      = store rb
-    , Resource.update     = update rb
-    , Resource.delete     = delete rb
-    , Resource.fromParams = fromParams rb <|> defaultFromParams
-    , Resource.putAction  = fromMaybe putDefault $ putAction rb
+addMedia :: Monad m => Media res m diff int -> ResourceBuilder res m id diff
+addMedia media res = res
+    { renderers   = renderers res ++ renderers'
+    , parsers     = parsers res ++ parsers'
+    , diffParsers = diffParsers res ++ diffParsers'
     }
   where
-    rb = f $ ResourceBuilder Nothing Nothing Nothing Nothing [] Nothing Nothing
-    hasStore  = isJust $ store rb
-    hasUpdate = isJust $ update rb
-    putDefault
-        | hasStore && not hasUpdate = JustStore
-        | hasUpdate && not hasStore = JustUpdate
-        | otherwise                 = TryUpdate
-    representations = undefined
-    parsers = undefined
+    renderers' = fromMaybe [] $ do
+        fromResource' <- _fromResource media
+        (mts, render) <- responseMedia media
+        return $ map (, fromResource' >=> render) mts
+    parsers' = fromMaybe [] $ do
+        toResource' <- _toResource media
+        (mts, parse) <- requestMedia media
+        return $ map (, parse >=> maybe (return Nothing) toResource') mts
+    diffParsers' = fromMaybe [] $ do
+        toDiff' <- _toDiff media
+        (mts, parse) <- requestMedia media
+        return $ map (, parse >=> maybe (return Nothing) toDiff' . tracef isJust) mts
 
 
 ------------------------------------------------------------------------------
-class UnVoid a b x y where
-    voidCast :: Alternative f => Proxy (a, b) -> f x -> f y
-
-instance UnVoid Void b x y where
-    voidCast _ _ = empty
-
-instance UnVoid a a x x where
-    voidCast _ = id
+setCreate :: (res -> m ()) -> ResourceBuilder res m id diff
+setCreate f res = res { create = Just f }
 
 
 ------------------------------------------------------------------------------
-setFetch
-    :: (UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
-    , UnVoid id id' (id -> m Bool) (id' -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id')
-    , UnVoid rep rep (MediaEntry m rep par diff) (MediaEntry m rep par diff))
-    => (id' -> m [rep])
-    -> ResourceBuilder Void par m id diff
-    -> ResourceBuilder rep par m id' diff
-setFetch = setFetch' Proxy
-
-setFetch'
-    :: (UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
-    , UnVoid id id' (id -> m Bool) (id' -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id')
-    , UnVoid id id' (MediaEntry m rep par diff) (MediaEntry m rep par diff))
-    => Proxy (id, id')
-    -> (id' -> m [rep])
-    -> ResourceBuilder Void par m id diff
-    -> ResourceBuilder rep par m id' diff
-setFetch' p a rb = rb
-    { fetch      = Just a
-    , update     = voidCast p $ update rb
-    , delete     = voidCast p $ delete rb
-    , media      = voidCast p $ media rb
-    , fromParams = voidCast p $ fromParams rb
-    }
+setRead :: (id -> m [res]) -> ResourceBuilder res m id diff
+setRead f res = res { retrieve = Just f }
 
 
 ------------------------------------------------------------------------------
-setStore
-    :: (par -> m ())
-    -> ResourceBuilder rep Void m id diff
-    -> ResourceBuilder rep par m id diff
-setStore a rb = rb { store = Just a }
+setUpdate :: (id -> diff -> m Bool) -> ResourceBuilder res m id diff
+setUpdate f res = res { update = Just f }
 
 
 ------------------------------------------------------------------------------
-setUpdate
-    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
-    , UnVoid id id' (id -> m Bool) (id' -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id'))
-    => (id' -> diff -> m Bool)
-    -> ResourceBuilder rep par m id Void
-    -> ResourceBuilder rep par m id' diff
-setUpdate = setUpdate' Proxy
-
-setUpdate'
-    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
-    , UnVoid id id' (id -> m Bool) (id' -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id'))
-    => Proxy (id, id')
-    -> (id' -> diff -> m Bool)
-    -> ResourceBuilder rep par m id Void
-    -> ResourceBuilder rep par m id' diff
-setUpdate' p a rb = rb
-    { fetch      = voidCast p $ fetch rb
-    , update     = Just a
-    , delete     = voidCast p $ delete rb
-    , fromParams = voidCast p $ fromParams rb
-    }
+setDelete :: (id -> m Bool) -> ResourceBuilder res m id diff
+setDelete f res = res { delete = Just f }
 
 
 ------------------------------------------------------------------------------
-setDelete
-    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
-    , UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id'))
-    => (id' -> m Bool)
-    -> ResourceBuilder rep par m id diff
-    -> ResourceBuilder rep par m id' diff
-setDelete = setDelete' Proxy
-
-setDelete'
-    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
-    , UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
-    , UnVoid id id' (Params -> Maybe id) (Params -> Maybe id'))
-    => Proxy (id, id')
-    -> (id' -> m Bool)
-    -> ResourceBuilder rep par m id diff
-    -> ResourceBuilder rep par m id' diff
-setDelete' p a rb = rb
-    { fetch      = voidCast p $ fetch rb
-    , update     = voidCast p $ update rb
-    , delete     = Just a
-    , fromParams = voidCast p $ fromParams rb
-    }
+setToDiff :: (res -> diff) -> ResourceBuilder res m id diff
+setToDiff f res = res { toDiff = Just f }
 
 
 ------------------------------------------------------------------------------
-setFromParams
-    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
-    , UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
-    , UnVoid id id' (id -> m Bool) (id' -> m Bool))
-    => (Params -> Maybe id')
-    -> ResourceBuilder rep par m id diff
-    -> ResourceBuilder rep par m id' diff
-setFromParams = setFromParams' Proxy
-
-setFromParams'
-    :: (UnVoid id id' (id -> m [rep]) (id' -> m [rep])
-    , UnVoid id id' (id -> diff -> m Bool) (id' -> diff -> m Bool)
-    , UnVoid id id' (id -> m Bool) (id' -> m Bool))
-    => Proxy (id, id')
-    -> (Params -> Maybe id')
-    -> ResourceBuilder rep par m id diff
-    -> ResourceBuilder rep par m id' diff
-setFromParams' p a rb = rb
-    { fetch      = voidCast p $ fetch rb
-    , update     = voidCast p $ update rb
-    , delete     = voidCast p $ delete rb
-    , fromParams = Just a
-    }
-
-
-------------------------------------------------------------------------------
-setPutAction
-    :: PutAction
-    -> ResourceBuilder rep par m id diff
-    -> ResourceBuilder rep par m id diff
-setPutAction a rb = rb { putAction = Just a }
+setFromParams :: (Params -> Maybe id) -> ResourceBuilder res m id diff
+setFromParams f res = res { fromParams = Just f }
 

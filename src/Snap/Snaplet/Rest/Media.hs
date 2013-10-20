@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 
 ------------------------------------------------------------------------------
--- | Defines type classes for converting back and forth from media
+-- | Defines a data structure for converting back and forth from media
 -- representations in HTTP.
 --
 -- Note that the conversion does not necessarily need to be a two-way process:

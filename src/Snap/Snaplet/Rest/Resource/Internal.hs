@@ -22,13 +22,13 @@ import Snap.Snaplet.Rest.Proxy                (Proxy (..))
 
 ------------------------------------------------------------------------------
 data Resource res m id diff = Resource
-    { composers     :: [(MediaType, res -> m ByteString)]
+    { renderers     :: [(MediaType, res -> m ByteString)]
     , parsers       :: [(MediaType, ByteString -> m (Maybe res))]
     , diffParsers   :: [(MediaType, ByteString -> m (Maybe diff))]
-    , listComposers :: [(MediaType, [res] -> m ByteString)]
+    , listRenderers :: [(MediaType, [res] -> m ByteString)]
     , listParsers   :: [(MediaType, ByteString -> m (Maybe [res]))]
-    , fetch         :: Maybe (id -> m [res])
-    , store         :: Maybe (res -> m ())
+    , create        :: Maybe (res -> m ())
+    , retrieve      :: Maybe (id -> m [res])
     , update        :: Maybe (id -> diff -> m Bool)
     , toDiff        :: Maybe (res -> diff)
     , delete        :: Maybe (id -> m Bool)
@@ -72,18 +72,18 @@ complete' p r = r
     , patchEnabled = isDifferentType p
     }
   where
-    hasStore  = isJust $ store r
+    hasCreate  = isJust $ create r
     hasUpdate = isJust $ update r
     defaultPutAction
-        | hasStore && not hasUpdate = Just Store
-        | hasUpdate && not hasStore = Just Update
+        | hasCreate && not hasUpdate = Just Create
+        | hasUpdate && not hasCreate = Just Update
         | otherwise                 = Nothing
 
 
 ------------------------------------------------------------------------------
 -- | Indicates which action that a PUT request should take for a resource.
 data PutAction
-    = Store   -- ^ Always store
+    = Create  -- ^ Always create
     | Update  -- ^ Always update
     deriving (Eq, Show)
 

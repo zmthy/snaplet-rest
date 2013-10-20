@@ -40,13 +40,13 @@ serveResourceWith
     :: (MonadSnap m, FromRequest id)
     => Resource res m id diff -> ResourceConfig m -> m ()
 serveResourceWith res' cfg = checkPath $
-        serveRoute' GET (handleGet res) (fetch res)
-    <|> serveRoute' POST (handlePost res) (store res)
+        serveRoute' GET (handleGet res) (retrieve res)
+    <|> serveRoute' POST (handlePost res) (create res)
     <|> serveRoute' DELETE (handleDelete res) (delete res)
     <|> servePut res cfg
     <|> serveRoute' PATCH (handlePatch res) (update res)
-    <|> serveRoute' OPTIONS (fetchOptions parsePath) (Just res)
-    <|> serveRoute' HEAD (handleGet res) (fetch res)
+    <|> serveRoute' OPTIONS (retrieveOptions parsePath) (Just res)
+    <|> serveRoute' HEAD (handleGet res) (retrieve res)
   where
     res = complete res'
     serveRoute' = serveRoute res cfg
@@ -71,12 +71,12 @@ servePut
     :: (MonadSnap m, FromRequest id)
     => Resource res m id diff -> ResourceConfig m -> m ()
 servePut res cfg =
-    (ifTop (serveRoute' (replaceResources res) (both store delete)) <|>) $
+    (ifTop (serveRoute' (replaceResources res) (both create delete)) <|>) $
     ifNotTop $ case putAction res of
-        Just Store  -> serveRoute' (storeResource res) (store res)
+        Just Create -> serveRoute' (createResource res) (create res)
         Just Update -> serveRoute' updatePut (both update toDiff)
         Nothing     -> serveRoute' (tryUpdateResource res)
-            ((,,) <$> store res <*> update res <*> toDiff res)
+            ((,,) <$> create res <*> update res <*> toDiff res)
   where
     serveRoute' = serveRoute res cfg PUT
     both f g = (,) <$> f res <*> g res
@@ -85,56 +85,53 @@ servePut res cfg =
 
 
 ------------------------------------------------------------------------------
--- | Routes to 'fetchResources' and 'fetchResource'.
+-- | Routes to 'retrieveResources' and 'retrieveResource'.
 handleGet
     :: (MonadSnap m, FromRequest id)
     => Resource res m id diff -> ResourceConfig m -> (id -> m [res])
     -> m ()
-handleGet res cfg fetch' =
-    ifTop (fetchResources res cfg fetch') <|> fetchResource res cfg fetch'
+handleGet res cfg retrieve' =
+    ifTop (retrieveResources res cfg retrieve') <|> retrieveResource res cfg retrieve'
 
 
 ------------------------------------------------------------------------------
--- | Fetches and serves resources using the URL query string.
-fetchResources
+-- | Retrieves and serves resources using the URL query string.
+retrieveResources
     :: MonadSnap m
     => Resource res m id diff -> ResourceConfig m -> (id -> m [res])
     -> m ()
-fetchResources res cfg fetch' = parseParams res cfg >>= maybe
-    (queryFailure cfg) (fetch' >=> serve (listComposers res) cfg . limit)
-  where
-    limit = case fetchLimit cfg of
-        Unlimited -> id
-        LimitTo i -> take i
+retrieveResources res cfg retrieve' = parseParams res cfg >>= maybe
+    (queryFailure cfg) (retrieve' >=> serve (listRenderers res) cfg . limit)
+  where limit = maybe id take $ readLimit cfg
 
 
 ------------------------------------------------------------------------------
--- | Fetch and serve a resource using the remaining path information.
-fetchResource
+-- | Retrieve and serve a resource using the remaining path information.
+retrieveResource
     :: (MonadSnap m, FromRequest id)
     => Resource res m id diff -> ResourceConfig m -> (id -> m [res])
     -> m ()
-fetchResource res cfg fetch' = parsePath >>= maybe (pathFailure cfg)
-    (fetch' >=> maybe (lookupFailure cfg)
-        (serve (composers res) cfg) . listToMaybe)
+retrieveResource res cfg retrieve' = parsePath >>= maybe (pathFailure cfg)
+    (retrieve' >=> maybe (lookupFailure cfg)
+        (serve (renderers res) cfg) . listToMaybe)
 
 
 ------------------------------------------------------------------------------
--- | Routes to 'storeResource' if there is no remaining path information,
+-- | Routes to 'createResource' if there is no remaining path information,
 -- otherwise indicates that POST is not allowed directly on a resource.
 handlePost
     :: MonadSnap m
     => Resource res m id diff -> ResourceConfig m -> (res -> m ()) -> m ()
-handlePost res cfg store' =
-    ifTop (storeResource res cfg store') <|> methodFailure res cfg
+handlePost res cfg create' =
+    ifTop (createResource res cfg create') <|> methodFailure res cfg
 
 
 ------------------------------------------------------------------------------
--- | Store a new resource from the request body.
-storeResource
+-- | Create a new resource from the request body.
+createResource
     :: MonadSnap m
     => Resource res m id diff -> ResourceConfig m -> (res -> m ()) -> m ()
-storeResource res cfg store' = receive (parsers res) cfg >>= store'
+createResource res cfg create' = receive (parsers res) cfg >>= create'
 
 
 ------------------------------------------------------------------------------
@@ -145,10 +142,10 @@ replaceResources
     :: MonadSnap m
     => Resource res m id diff -> ResourceConfig m
     -> (res -> m (), id -> m Bool) -> m ()
-replaceResources res cfg (store', delete') = do
+replaceResources res cfg (create', delete') = do
     m <- receive (listParsers res) cfg
     deleteResources res cfg delete'
-    mapM_ store' m
+    mapM_ create' m
 
 
 ------------------------------------------------------------------------------
@@ -184,15 +181,15 @@ updateResource' cfg update' diff = parsePath >>=
 
 
 ------------------------------------------------------------------------------
--- | Attempts to update with the request body, and stores it instead if that
+-- | Attempts to update with the request body, and creates it instead if that
 -- fails.
 tryUpdateResource
     :: (MonadSnap m, FromRequest id)
     => Resource res m id diff -> ResourceConfig m
     -> (res -> m (), id -> diff -> m Bool, res -> diff) -> m ()
-tryUpdateResource res cfg (store', update', toDiff') = do
+tryUpdateResource res cfg (create', update', toDiff') = do
     par <- receive (parsers res) cfg
-    updateResource' cfg update' (toDiff' par) >>= flip unless (store' par)
+    updateResource' cfg update' (toDiff' par) >>= flip unless (create' par)
 
 
 ------------------------------------------------------------------------------
@@ -238,11 +235,11 @@ deleteResource cfg delete' = parsePath >>= maybe (pathFailure cfg)
 
 ------------------------------------------------------------------------------
 -- | Serves either collection or resource options, depending on the path.
-fetchOptions
+retrieveOptions
     :: MonadSnap m
     => m (Maybe id) -> ResourceConfig m
     -> Resource res m id diff -> m ()
-fetchOptions parsePath' cfg res = do
+retrieveOptions parsePath' cfg res = do
     isTop >>=
         flip unless (isNothing <$> parsePath' >>= flip when (pathFailure cfg))
     setAllow $ optionsFor res

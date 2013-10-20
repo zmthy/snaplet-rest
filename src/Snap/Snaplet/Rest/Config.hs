@@ -3,7 +3,6 @@ module Snap.Snaplet.Rest.Config
     (
     -- * Configuration
       ResourceConfig (..)
-    , FetchLimit (..)
     , defaultConfig
 
     -- * Snaplet type class
@@ -33,7 +32,7 @@ data ResourceConfig m = ResourceConfig
     {
     -- | The maximum number of members to retrieve from a collection in
     -- a single request.
-      fetchLimit :: FetchLimit
+      readLimit :: Maybe Int
 
     -- | Maximum size of request bodies allowed when receiving resources.
     , maxRequestBodySize :: Int64
@@ -66,24 +65,17 @@ data ResourceConfig m = ResourceConfig
 
 
 ------------------------------------------------------------------------------
--- | Allows for fetching either a limited or unlimted amount.
-data FetchLimit
-    = Unlimited
-    | LimitTo Int
-
-
-------------------------------------------------------------------------------
 -- | The default configuration settings.  Requires a value for the maximum
 -- size of a request body.
 --
 -- > defaultConfig mrbs = ResourceConfig
--- >     { fetchLimit = Unlimited
+-- >     { readLimit = Nothing
 -- >     , maxRequestBodySize = mrbs
 -- >     , on*Failure = write "reason"
 -- >     }
 defaultConfig :: MonadSnap m => Int64 -> ResourceConfig m
 defaultConfig mrbs = ResourceConfig
-    { fetchLimit            = Unlimited
+    { readLimit             = Nothing
     , maxRequestBodySize    = mrbs
     , onHeaderFailure       = write "Failed to parse request headers\n"
     , onPathFailure         = write "Failed to parse resource path\n"

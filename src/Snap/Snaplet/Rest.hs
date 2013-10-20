@@ -7,11 +7,40 @@ module Snap.Snaplet.Rest
 
     -- * Resource
     , Resource
+    , resource
+    , addMedia
+    , setCreate
+    , setRead
+    , setUpdate
+    , setDelete
+    , setToDiff
+    , setFromParams
 
     -- * Request parsing
     , FromRequest (..)
     , parseRead
     , Params
+
+    -- * Media
+    , Media
+    , newMedia
+    , newIntermediateMedia
+    , newRequestMedia
+    , newResponseMedia
+    , MediaSetter
+    , fromResource
+    , toResource
+    , toDiff
+    , toEither
+
+    -- * Common media instances
+    , json
+    , jsonInstances
+    , xml
+    , xhtml
+    , html
+    , form
+    , multipart
 
     -- * Config
     , ResourceConfig (..)

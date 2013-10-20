@@ -1,5 +1,5 @@
 {-# LANGUAGE ExistentialQuantification, FlexibleInstances,
-    FunctionalDependencies, Rank2Types, TupleSections #-}
+    FunctionalDependencies, Rank2Types #-}
 
 ------------------------------------------------------------------------------
 module Snap.Snaplet.Rest.Resource.Media
@@ -10,10 +10,6 @@ module Snap.Snaplet.Rest.Resource.Media
     , newResponseMedia
     , newRequestMedia
     , newIntermediateMedia
-
-    -- * Entries
-    , MediaClass (..)
-    , MediaEntry (..)
 
     -- * Setters
     , MediaSetter
@@ -43,7 +39,6 @@ import Control.Lens
 import Control.Monad
 import Data.Aeson         hiding (json)
 import Data.ByteString    (ByteString)
-import Data.Maybe
 import Network.HTTP.Media (MediaType)
 import Snap.Core
 import Text.XmlHtml       (Document)
@@ -57,33 +52,6 @@ data Media res m diff int = Media
     , responseMedia    :: Maybe ([MediaType], int -> m ByteString)
     , requestMedia     :: Maybe ([MediaType], ByteString -> m (Maybe int))
     }
-
-
-------------------------------------------------------------------------------
-data MediaEntry res m diff
-    = forall med. MediaClass med res m => MediaEntry med
-
-class MediaClass media res m | media -> res m where
-    representations :: media -> [(MediaType, res -> m ByteString)]
-    parsers         :: media -> [(MediaType, ByteString -> m (Maybe res))]
-
-instance Monad m => MediaClass (Media res m diff int) res m where
-    representations media = fromMaybe [] $ do
-        fromResource' <- _fromResource media
-        (mts, render) <- responseMedia media
-        return $ map (, fromResource' >=> render) mts
-    parsers media = fromMaybe [] $ do
-        toResource' <- _toResource media
-        (mts, parse) <- requestMedia media
-        return $ map (, parse >=> maybe (return Nothing) toResource') mts
-
-instance MediaClass (MediaEntry res m diff) res m where
-    representations (MediaEntry media) = representations media
-    parsers (MediaEntry media) = parsers media
-
-instance MediaClass [MediaEntry res m diff] res m where
-    representations = concatMap representations
-    parsers = concatMap parsers
 
 
 ------------------------------------------------------------------------------
@@ -183,8 +151,9 @@ jsonInstances = Media
     (Just (return . toJSON))
     (Just (return . resultToMaybe . fromJSON))
     (Just (return . resultToMaybe . fromJSON))
-    (Just (["application/json; charset=utf-8"], return . LBS.toStrict . encode))
-    (Just (["application/json"], return . decodeStrict))
+    (Just (["application/json; charset=utf-8"],
+        return . LBS.toStrict . encode))
+    (Just (["application/json"], return . decode . LBS.fromStrict))
   where
     resultToMaybe (Error _)   = Nothing
     resultToMaybe (Success a) = Just a

@@ -40,8 +40,10 @@ library
     Snap.Snaplet.Rest.Media
     Snap.Snaplet.Rest.Options
     Snap.Snaplet.Rest.Proxy
+    Snap.Snaplet.Rest.Resource.Builder
     Snap.Snaplet.Rest.Resource.Internal
     Snap.Snaplet.Rest.Resource.Media
+    Snap.Snaplet.Rest.Serve
 
   build-depends:
     aeson            >= 0.6.2  && < 0.7,

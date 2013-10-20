@@ -25,8 +25,8 @@ import Snap.Snaplet.Rest.Resource.Internal
 ------------------------------------------------------------------------------
 -- | Options for a REST resource.
 data ResourceOptions = ResourceOptions
-    { hasFetch      :: Bool
-    , hasStore      :: Bool
+    { hasRetrieve   :: Bool
+    , hasCreate     :: Bool
     , hasUpdate     :: Bool
     , hasDiff       :: Bool
     , hasDelete     :: Bool
@@ -39,15 +39,15 @@ data ResourceOptions = ResourceOptions
 -- | Build options for a single resource.
 optionsFor :: Resource res m id diff -> ResourceOptions
 optionsFor res = ResourceOptions
-    { hasFetch      = isJust $ fetch res
-    , hasStore      = isJust $ store res
+    { hasRetrieve   = isJust $ retrieve res
+    , hasCreate     = isJust $ create res
     , hasUpdate     = isJust $ update res
     , hasDiff       = isJust $ toDiff res
     , hasDelete     = isJust $ delete res
     , hasFromParams = isJust $ fromParams res
     , hasPut        = case putAction res of
-        Nothing     -> isJust (store res) && isJust (update res)
-        Just Store  -> isJust $ store res
+        Nothing     -> isJust (create res) && isJust (update res)
+        Just Create -> isJust $ create res
         Just Update -> isJust $ update res
     }
 
@@ -63,25 +63,25 @@ setAllow opt =
 ------------------------------------------------------------------------------
 collectionAllow :: ResourceOptions -> [ByteString]
 collectionAllow opt = []
-    & addMethod (hasFetch opt && enabled) "HEAD"
+    & addMethod (hasRetrieve opt && enabled) "HEAD"
     & addMethod True "OPTIONS"
     & addMethod (hasUpdate opt && enabled) "UPDATE"
     & addMethod (hasDelete opt && enabled) "DELETE"
-    & addMethod (hasStore opt && hasDelete opt && enabled) "PUT"
-    & addMethod (hasStore opt) "POST"
-    & addMethod (hasFetch opt && enabled) "GET"
+    & addMethod (hasCreate opt && hasDelete opt && enabled) "PUT"
+    & addMethod (hasCreate opt) "POST"
+    & addMethod (hasRetrieve opt && enabled) "GET"
   where enabled = hasFromParams opt
 
 
 ------------------------------------------------------------------------------
 resourceAllow :: ResourceOptions -> [ByteString]
 resourceAllow opt = []
-    & addMethod (hasFetch opt) "HEAD"
+    & addMethod (hasRetrieve opt) "HEAD"
     & addMethod True "OPTIONS"
     & addMethod (hasUpdate opt && hasDiff opt) "PATCH"
     & addMethod (hasDelete opt) "DELETE"
     & addMethod (hasPut opt) "PUT"
-    & addMethod (hasFetch opt) "GET"
+    & addMethod (hasRetrieve opt) "GET"
 
 
 ------------------------------------------------------------------------------
