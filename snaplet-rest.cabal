@@ -11,7 +11,50 @@ build-type:    Simple
 cabal-version: >=1.10
 synopsis:      REST resources for the Snap web framework
 description:
-  Provides explicit REST resources for the Snap web framework.
+  REST resources for the Snap framework.
+  .
+  As an example, let's translate the following datatype into a resource.
+  .
+  > data User = User Username String Int
+  >
+  > type Username = CI String
+  .
+  We need a type to represent changes to the resource.  This 'partial' type
+  indicates what properties to change: either the name, the age, or both.
+  .
+  > data UserPart = UserPart (Maybe String) (Maybe Int)
+  .
+  This type also acts as a search mechanism: we can search by names, ages, or
+  both.  We can use either a username or a @UserPart@ search to find users, and
+  define a function to convert URL query string parameters to this search.
+  .
+  > type UserId = Either Username UserPart
+  >
+  > userIdFromParams :: Params -> Maybe UserId
+  .
+  Now we have the pieces required to define our CRUD behaviour.
+  .
+  > createUser :: User -> AppHandler ()
+  >
+  > readUser :: UserId -> AppHandler [User]
+  >
+  > updateUser :: UserId -> UserPart -> AppHandler Bool
+  >
+  > deleteUser :: UserId -> AppHandler Bool
+  .
+  If we've implemented Aeson instances, we can add JSON as a media format
+  without having to define these manually.  Once the behaviour is attached to
+  the resource, it can be served in the handler.
+  .
+  > serveUser :: AppHandler ()
+  > serveUser = serveResource $ resource
+  >     & addMedia jsonInstances
+  >     & setCreate createUser
+  >     & setRead readUser
+  >     & setUpdate updateUser
+  >     & setDelete deleteUser
+  >     & setFromParams userIdFromParams
+
 
 library
   hs-source-dirs: src
